@@ -90,5 +90,34 @@ namespace MyReminder.API.Controllers
                 Username = user.Username
             });
         }
+
+        [Authorize]
+        [HttpDelete("account")]
+        public async Task<IActionResult> DeleteAccount()
+        {
+            var claim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier) ?? User.FindFirst(System.Security.Claims.ClaimTypes.Name);
+            if (claim == null || !Guid.TryParse(claim.Value, out Guid userId))
+            {
+                return Unauthorized();
+            }
+
+            var user = await _context.Users.FindAsync(userId);
+            if (user != null)
+            {
+                var reminders = _context.Reminders.Where(r => r.UserId == userId);
+                _context.Reminders.RemoveRange(reminders);
+
+                var notes = _context.Notes.Where(n => n.UserId == userId);
+                _context.Notes.RemoveRange(notes);
+
+                var habits = _context.Habits.Where(h => h.UserId == userId);
+                _context.Habits.RemoveRange(habits);
+
+                _context.Users.Remove(user);
+                await _context.SaveChangesAsync();
+            }
+
+            return Ok(new { message = "Cuenta eliminada exitosamente." });
+        }
     }
 }

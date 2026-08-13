@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/database/db_helper.dart';
 import '../../../core/providers/global_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_provider.dart';
@@ -174,9 +175,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   // Offline support
                 }
 
+                // Clear all local SQLite cached data
+                await DbHelper().clearAllData();
+
+                // Clear all secure storage tokens & preferences
                 final storage = ref.read(secureStorageProvider);
                 await storage.clearAll();
 
+                // Instantly logout and redirect to Login
                 await ref.read(authStateProvider.notifier).logout();
                 if (mounted) {
                   AppToast.show(context, message: 'Tu cuenta ha sido eliminada permanentemente.', type: AppToastType.warning);
