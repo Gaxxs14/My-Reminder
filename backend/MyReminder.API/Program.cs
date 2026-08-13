@@ -12,8 +12,10 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// Add TokenService, Controllers and Swagger/OpenAPI support
+// Add TokenService, GeminiService, HttpClient, Controllers and Swagger/OpenAPI support
+builder.Services.AddHttpClient();
 builder.Services.AddScoped<MyReminder.API.Services.TokenService>();
+builder.Services.AddScoped<MyReminder.API.Services.GeminiService>();
 builder.Services.AddControllers();
 
 // Add CORS Policy for mobile/local testing

@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import 'reminders_provider.dart';
 import 'add_reminder_sheet.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../assistant/presentation/assistant_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -132,6 +133,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               icon: const Icon(Icons.sync_rounded),
                               onPressed: _syncData,
                             ),
+                      IconButton(
+                        icon: const Icon(Icons.mic_none_rounded),
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (context) => const AssistantScreen()),
+                          );
+                        },
+                      ),
                       IconButton(
                         icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
                         onPressed: () => ref.read(appThemeModeProvider.notifier).toggleTheme(),
