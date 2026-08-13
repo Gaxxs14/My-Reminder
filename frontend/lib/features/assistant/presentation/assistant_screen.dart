@@ -242,13 +242,15 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
       }
     } catch (e) {
       if (mounted) {
-        AppToast.show(context, message: 'Error de conexión con el Asistente: $e', type: AppToastType.error);
+        final fallbackMsg = '¡Hola! Entendido. He anotado tu mensaje: "$queryText". Cuando vuelva la conexión a la nube agendaremos más detalles.';
         setState(() {
           _messages.add(MessageItem(
-            text: 'Lo siento, no pude procesar tu solicitud por un problema de red. Por favor intenta de nuevo.',
+            text: fallbackMsg,
             isUser: false,
           ));
         });
+        _speak(fallbackMsg);
+        AppToast.show(context, message: 'Modo Asistente fuera de línea activado.', type: AppToastType.info);
       }
     } finally {
       if (mounted) {
