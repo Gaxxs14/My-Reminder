@@ -186,7 +186,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                       const SizedBox(height: 24),
                       Text(
-                        'MyReminder',
+                        'My Reminder',
                         style: TextStyle(
                           fontSize: 34,
                           fontWeight: FontWeight.w800,
