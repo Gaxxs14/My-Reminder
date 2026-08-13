@@ -60,6 +60,8 @@ dependencies:
   flutter_local_notifications: ^18.0.1
   speech_to_text: ^7.4.0
   flutter_tts: ^4.2.2
+  uuid: ^4.6.0
+  timezone: ^0.10.1
 
 dev_dependencies:
   flutter_test:

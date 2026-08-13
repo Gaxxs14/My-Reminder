@@ -4,6 +4,8 @@ import '../network/api_client.dart';
 import '../security/auth_service.dart';
 import '../security/biometric_service.dart';
 import '../security/secure_storage_service.dart';
+import '../services/notification_service.dart';
+import '../../features/reminders/data/local_reminder_repository.dart';
 
 final secureStorageProvider = Provider<SecureStorageService>((ref) {
   return SecureStorageService();
@@ -11,6 +13,14 @@ final secureStorageProvider = Provider<SecureStorageService>((ref) {
 
 final biometricProvider = Provider<BiometricService>((ref) {
   return BiometricService();
+});
+
+final notificationServiceProvider = Provider<NotificationService>((ref) {
+  return NotificationService();
+});
+
+final localReminderRepositoryProvider = Provider<LocalReminderRepository>((ref) {
+  return LocalReminderRepository(ref.watch(dbHelperProvider));
 });
 
 final dbHelperProvider = Provider<DbHelper>((ref) {
@@ -24,6 +34,11 @@ final apiClientProvider = Provider<ApiClient>((ref) {
     baseUrl: localUrl,
     secureStorage: ref.watch(secureStorageProvider),
   );
+});
+
+final usernameProvider = FutureProvider<String>((ref) async {
+  final storage = ref.watch(secureStorageProvider);
+  return await storage.getUsername() ?? 'Usuario';
 });
 
 final authServiceProvider = Provider<AuthService>((ref) {

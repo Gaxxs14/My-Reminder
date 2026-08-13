@@ -7,8 +7,16 @@ import 'core/theme/theme_provider.dart';
 import 'features/auth/presentation/login_screen.dart';
 import 'features/reminders/presentation/home_screen.dart';
 
-void main() {
+import 'core/services/notification_service.dart';
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize physical local alarm/notifications
+  final notificationService = NotificationService();
+  await notificationService.init();
+  await notificationService.requestPermissions();
+
   runApp(
     const ProviderScope(
       child: MyApp(),
