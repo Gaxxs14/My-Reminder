@@ -82,6 +82,21 @@ class RemindersNotifier extends StateNotifier<List<ReminderModel>> {
     state = state.where((r) => r.id != id).toList();
   }
 
+  // Update an existing reminder
+  Future<void> updateReminder(ReminderModel updated) async {
+    await _repository.updateReminder(updated);
+    await _notificationService.scheduleNotification(
+      id: updated.id,
+      title: updated.title,
+      body: updated.description ?? 'Tienes un compromiso pendiente ahora.',
+      scheduledTime: updated.dueDate,
+    );
+    state = [
+      for (final r in state)
+        if (r.id == updated.id) updated else r
+    ]..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+  }
+
   // Sync state with cloud database
   Future<void> syncWithCloud() async {
     try {

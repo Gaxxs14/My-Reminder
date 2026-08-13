@@ -6,7 +6,9 @@ import '../../../core/theme/theme_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import 'reminders_provider.dart';
 import 'add_reminder_sheet.dart';
+import 'edit_reminder_sheet.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/weather_widget.dart';
 import '../../assistant/presentation/assistant_screen.dart';
 import '../../habits/presentation/habits_screen.dart';
 import '../../notes/presentation/notes_screen.dart';
@@ -206,126 +208,135 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  void _showProfileMenu(BuildContext context, bool isDark) {
+  // 100% CLEAN 3-DOTS OPTIONS & TOOLS MENU (Zero Truncation!)
+  void _showToolsMenu(BuildContext context, bool isDark) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (context) {
-        final usernameAsync = ref.read(usernameProvider);
         return Container(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.withValues(alpha: 0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 20),
-              CircleAvatar(
-                radius: 32,
-                backgroundColor: AppTheme.primaryDark.withValues(alpha: 0.2),
-                child: Text(
-                  usernameAsync.valueOrNull?.substring(0, 1).toUpperCase() ?? 'U',
-                  style: const TextStyle(
-                    color: AppTheme.primaryDark,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 26,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                usernameAsync.valueOrNull ?? 'Usuario',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                const SizedBox(height: 16),
+                Text(
+                  'Herramientas & Opciones',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Sesión Activa - Sincronizado en la nube',
-                style: TextStyle(fontSize: 12, color: AppTheme.accentTeal),
-              ),
-              const SizedBox(height: 24),
+                const SizedBox(height: 20),
 
-              ListTile(
-                leading: const Icon(Icons.timer_outlined, color: AppTheme.primaryDark),
-                title: const Text('Temporizador Pomodoro & Enfoque'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const PomodoroScreen()));
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.analytics_outlined, color: AppTheme.accentTeal),
-                title: const Text('Dashboard & Analítica'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const AnalyticsScreen()));
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.emoji_events_outlined, color: Colors.amber),
-                title: const Text('Misiones RPG & Insignias'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const QuestsScreen()));
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.view_kanban_outlined, color: Colors.blueAccent),
-                title: const Text('Tablero Kanban'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const KanbanScreen()));
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.mood_outlined, color: Colors.purpleAccent),
-                title: const Text('Registro de Ánimo (Mood Tracker)'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  showModalBottomSheet(context: context, isScrollControlled: true, builder: (ctx) => const MoodTrackerSheet());
-                },
-              ),
-              ListTile(
-                leading: Icon(
-                  isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                  color: AppTheme.primaryDark,
+                ListTile(
+                  leading: const Icon(Icons.search_rounded, color: AppTheme.primaryDark),
+                  title: const Text('Búsqueda Global'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    showModalBottomSheet(context: context, isScrollControlled: true, builder: (ctx) => const GlobalSearchSheet());
+                  },
                 ),
-                title: Text(isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  ref.read(appThemeModeProvider.notifier).toggleTheme();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.sync_rounded, color: AppTheme.accentTeal),
-                title: const Text('Sincronizar Datos Ahora'),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  _syncData();
-                },
-              ),
-              const Divider(height: 24),
-              ListTile(
-                leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-                title: const Text(
-                  'Cerrar Sesión',
-                  style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                ListTile(
+                  leading: const Icon(Icons.mic_rounded, color: AppTheme.accentTeal),
+                  title: const Text('Asistente IA por Voz'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const AssistantScreen()));
+                  },
                 ),
-                onTap: () async {
-                  Navigator.of(context).pop();
-                  await ref.read(authStateProvider.notifier).logout();
-                },
-              ),
-            ],
+                ListTile(
+                  leading: const Icon(Icons.camera_alt_outlined, color: Colors.purpleAccent),
+                  title: const Text('Escáner OCR de Fotos'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _showScanOptions();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.timer_outlined, color: AppTheme.primaryDark),
+                  title: const Text('Temporizador Pomodoro & Enfoque'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const PomodoroScreen()));
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.analytics_outlined, color: AppTheme.accentTeal),
+                  title: const Text('Dashboard & Analítica'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const AnalyticsScreen()));
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.emoji_events_outlined, color: Colors.amber),
+                  title: const Text('Misiones RPG & Insignias'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const QuestsScreen()));
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.view_kanban_outlined, color: Colors.blueAccent),
+                  title: const Text('Tablero Kanban'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const KanbanScreen()));
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.mood_outlined, color: Colors.purpleAccent),
+                  title: const Text('Registro de Ánimo (Mood Tracker)'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    showModalBottomSheet(context: context, isScrollControlled: true, builder: (ctx) => const MoodTrackerSheet());
+                  },
+                ),
+                ListTile(
+                  leading: Icon(
+                    isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                    color: AppTheme.primaryDark,
+                  ),
+                  title: Text(isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    ref.read(appThemeModeProvider.notifier).toggleTheme();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.sync_rounded, color: AppTheme.accentTeal),
+                  title: const Text('Sincronizar Datos Ahora'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _syncData();
+                  },
+                ),
+                const Divider(height: 24),
+                ListTile(
+                  leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+                  title: const Text(
+                    'Cerrar Sesión',
+                    style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                  ),
+                  onTap: () async {
+                    Navigator.of(context).pop();
+                    await ref.read(authStateProvider.notifier).logout();
+                  },
+                ),
+              ],
+            ),
           ),
         );
       },
@@ -429,21 +440,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildRemindersBody(
     BuildContext context,
-    List<dynamic> filteredReminders,
+    List<ReminderModel> filteredReminders,
     bool isDark,
     AsyncValue<String> usernameAsync,
   ) {
+    final monthName = DateFormat('MMMM yyyy', 'es_US').format(_selectedDate);
+
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. 100% RESPONSIVE HEADER ROW
+            // 1. CLEAN TOP BAR HEADER: Avatar + Name on left, ONE PROMINENT 3-DOTS BUTTON on right!
             Row(
               children: [
                 GestureDetector(
-                  onTap: () => _showProfileMenu(context, isDark),
+                  onTap: () => _showToolsMenu(context, isDark),
                   child: CircleAvatar(
                     radius: 20,
                     backgroundColor: AppTheme.primaryDark.withValues(alpha: 0.2),
@@ -457,7 +470,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -488,68 +501,51 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ],
                   ),
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (_isSyncing)
-                      const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryDark),
-                      )
-                    else
-                      IconButton(
-                        icon: const Icon(Icons.sync_rounded, size: 22),
-                        onPressed: _syncData,
-                        tooltip: 'Sincronizar',
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                      ),
-                    IconButton(
-                      icon: const Icon(Icons.search_rounded, size: 22),
-                      onPressed: () {
-                        showModalBottomSheet(
-                          context: context,
-                          isScrollControlled: true,
-                          builder: (ctx) => const GlobalSearchSheet(),
-                        );
-                      },
-                      tooltip: 'Búsqueda Global',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.camera_alt_outlined, size: 22),
-                      onPressed: _showScanOptions,
-                      tooltip: 'Escáner OCR',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.mic_none_rounded, size: 22),
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(builder: (context) => const AssistantScreen()),
-                        );
-                      },
-                      tooltip: 'Asistente IA',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.more_vert_rounded, size: 22),
-                      onPressed: () => _showProfileMenu(context, isDark),
-                      tooltip: 'Menú & Perfil',
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                    ),
-                  ],
+                // Prominent Stylish 3-Dots Button
+                Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryDark.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppTheme.primaryDark.withValues(alpha: 0.4), width: 1.5),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.more_vert_rounded, color: AppTheme.primaryDark, size: 24),
+                    onPressed: () => _showToolsMenu(context, isDark),
+                    tooltip: 'Menú de Herramientas y Opciones',
+                  ),
                 ),
               ],
             ),
+            const SizedBox(height: 14),
+
+            // 2. LIVE GPS WEATHER WIDGET
+            const WeatherWidget(),
             const SizedBox(height: 16),
 
-            // 2. CALENDAR STRIP (Horizontal Date Picker)
+            // 3. ELEGANT CALENDAR DATE STRIP HEADER
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  monthName[0].toUpperCase() + monthName.substring(1),
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _selectedDate = DateTime.now();
+                    });
+                  },
+                  child: const Text('Hoy', style: TextStyle(color: AppTheme.primaryDark, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+
             SizedBox(
               height: 74,
               child: ListView.builder(
@@ -574,7 +570,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       },
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        width: 56,
+                        width: 58,
                         decoration: BoxDecoration(
                           color: isSelected
                               ? AppTheme.primaryDark
@@ -630,7 +626,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SizedBox(height: 16),
 
-            // 3. CATEGORY CHIPS
+            // 4. CATEGORY CHIPS
             SizedBox(
               height: 38,
               child: ListView.builder(
@@ -676,7 +672,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SizedBox(height: 16),
 
-            // 4. REMINDERS LIST
+            // 5. REMINDERS LIST WITH FULL EDIT & DELETE CRUD OPTIONS
             Expanded(
               child: filteredReminders.isEmpty
                   ? Center(
@@ -723,8 +719,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               color: isDark ? AppTheme.surfaceDark : Colors.white,
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
-                                color: isDark ? AppTheme.glassBorder : Colors.grey[200]!,
-                                width: 1,
+                                color: reminder.priority == 'alta'
+                                    ? Colors.redAccent
+                                    : (isDark ? AppTheme.glassBorder : Colors.grey[200]!),
+                                width: reminder.priority == 'alta' ? 1.5 : 1,
                               ),
                               boxShadow: [
                                 BoxShadow(
@@ -814,6 +812,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                           ),
                                         ],
                                       ),
+                                      if (reminder.estimatedCost != null) ...[
+                                        Text(
+                                          '\$${reminder.estimatedCost!.toStringAsFixed(2)}',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.primaryDark,
+                                          ),
+                                        ),
+                                      ],
                                       if (reminder.locationName != null) ...[
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
@@ -863,11 +871,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   ),
                                 ],
                               ),
-                              trailing: IconButton(
-                                icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
-                                onPressed: () {
-                                  ref.read(remindersProvider.notifier).deleteReminder(reminder.id);
+                              trailing: PopupMenuButton<String>(
+                                icon: const Icon(Icons.more_vert_rounded, size: 20, color: Colors.grey),
+                                onSelected: (val) {
+                                  if (val == 'edit') {
+                                    showModalBottomSheet(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      builder: (ctx) => EditReminderSheet(reminder: reminder),
+                                    );
+                                  } else if (val == 'delete') {
+                                    ref.read(remindersProvider.notifier).deleteReminder(reminder.id);
+                                    AppToast.show(context, message: 'Recordatorio eliminado', type: AppToastType.warning);
+                                  }
                                 },
+                                itemBuilder: (ctx) => [
+                                  const PopupMenuItem(
+                                    value: 'edit',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.edit_outlined, size: 18, color: AppTheme.primaryDark),
+                                        SizedBox(width: 8),
+                                        Text('Editar'),
+                                      ],
+                                    ),
+                                  ),
+                                  const PopupMenuItem(
+                                    value: 'delete',
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                                        SizedBox(width: 8),
+                                        Text('Eliminar', style: TextStyle(color: Colors.redAccent)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),

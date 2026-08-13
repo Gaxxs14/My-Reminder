@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/gaxxs_loader.dart';
+import '../data/note_model.dart';
 import 'notes_provider.dart';
 
 class NotesScreen extends ConsumerStatefulWidget {
@@ -70,7 +71,11 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
     }
   }
 
-  void _showAddNoteDialog() {
+  void _showAddNoteDialog({NoteModel? noteToEdit}) {
+    if (noteToEdit != null) {
+      _titleController.text = noteToEdit.title;
+      _contentController.text = noteToEdit.content;
+    }
     showDialog(
       context: context,
       builder: (context) {
@@ -79,7 +84,7 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
           backgroundColor: isDark ? AppTheme.surfaceDark : Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
           title: Text(
-            'Nueva Nota',
+            noteToEdit != null ? 'Editar Nota' : 'Nueva Nota',
             style: TextStyle(color: isDark ? Colors.white : AppTheme.textPrimaryLight, fontWeight: FontWeight.bold),
           ),
           content: Column(
@@ -119,11 +124,17 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                 final title = _titleController.text.trim();
                 final content = _contentController.text.trim();
                 if (title.isNotEmpty && content.isNotEmpty) {
-                  ref.read(notesProvider.notifier).addNote(title, content);
+                  if (noteToEdit != null) {
+                    final updated = noteToEdit.copyWith(title: title, content: content, isSynced: false);
+                    ref.read(notesProvider.notifier).updateNote(updated);
+                    AppToast.show(context, message: '¡Nota actualizada!', type: AppToastType.success);
+                  } else {
+                    ref.read(notesProvider.notifier).addNote(title, content);
+                    AppToast.show(context, message: '¡Nota guardada!', type: AppToastType.success);
+                  }
                   _titleController.clear();
                   _contentController.clear();
                   Navigator.of(context).pop();
-                  AppToast.show(context, message: '¡Nota guardada!', type: AppToastType.success);
                 }
               },
               child: const Text('Guardar'),

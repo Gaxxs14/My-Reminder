@@ -35,10 +35,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _checkBiometrics() async {
-    final hasToken = await ref.read(secureStorageProvider).getToken();
     final canAuth = await ref.read(biometricProvider).canAuthenticate();
-    
-    if (hasToken != null && canAuth) {
+    if (canAuth) {
       setState(() {
         _biometricsAvailable = true;
       });
@@ -50,12 +48,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _authenticateWithBiometrics() async {
+    final hasToken = await ref.read(secureStorageProvider).getToken();
+    if (hasToken == null) {
+      if (mounted) {
+        AppToast.show(
+          context,
+          message: 'Inicia sesión con tu contraseña primero para vincular tu huella.',
+          type: AppToastType.warning,
+        );
+      }
+      return;
+    }
+
     setState(() => _isLoading = true);
     final success = await ref.read(authStateProvider.notifier).loginWithBiometrics();
     setState(() => _isLoading = false);
 
     if (success && mounted) {
       AppToast.show(context, message: '¡Desbloqueado con biometría!', type: AppToastType.success);
+    } else if (mounted) {
+      AppToast.show(
+        context,
+        message: 'No se reconoció la huella o la sesión expiró.',
+        type: AppToastType.error,
+      );
     }
   }
 
