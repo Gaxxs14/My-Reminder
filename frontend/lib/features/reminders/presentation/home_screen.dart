@@ -6,6 +6,7 @@ import '../../../core/theme/theme_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import 'reminders_provider.dart';
 import 'add_reminder_sheet.dart';
+import '../../../core/widgets/app_toast.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -17,8 +18,34 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   DateTime _selectedDate = DateTime.now();
   String _selectedCategory = 'Todas';
+  bool _isSyncing = false;
 
   final List<String> _categories = ['Todas', 'Personal', 'Trabajo', 'Salud', 'General'];
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-sync on open
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncData(showToast: false);
+    });
+  }
+
+  Future<void> _syncData({bool showToast = true}) async {
+    setState(() => _isSyncing = true);
+    try {
+      await ref.read(remindersProvider.notifier).syncWithCloud();
+      if (mounted && showToast) {
+        AppToast.show(context, message: '¡Datos sincronizados con la nube!', type: AppToastType.success);
+      }
+    } catch (e) {
+      if (mounted && showToast) {
+        AppToast.show(context, message: 'Error de sincronización: $e', type: AppToastType.error);
+      }
+    } finally {
+      if (mounted) setState(() => _isSyncing = false);
+    }
+  }
 
   // Map category names to their colors
   Color _getCategoryColor(String category) {
@@ -89,6 +116,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   Row(
                     children: [
+                      _isSyncing
+                          ? const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12.0),
+                              child: SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: AppTheme.primaryDark,
+                                ),
+                              ),
+                            )
+                          : IconButton(
+                              icon: const Icon(Icons.sync_rounded),
+                              onPressed: _syncData,
+                            ),
                       IconButton(
                         icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
                         onPressed: () => ref.read(appThemeModeProvider.notifier).toggleTheme(),

@@ -5,6 +5,7 @@ import '../security/auth_service.dart';
 import '../security/biometric_service.dart';
 import '../security/secure_storage_service.dart';
 import '../services/notification_service.dart';
+import '../network/sync_service.dart';
 import '../../features/reminders/data/local_reminder_repository.dart';
 
 final secureStorageProvider = Provider<SecureStorageService>((ref) {
@@ -21,6 +22,13 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
 
 final localReminderRepositoryProvider = Provider<LocalReminderRepository>((ref) {
   return LocalReminderRepository(ref.watch(dbHelperProvider));
+});
+
+final syncServiceProvider = Provider<SyncService>((ref) {
+  return SyncService(
+    apiClient: ref.watch(apiClientProvider),
+    repository: ref.watch(localReminderRepositoryProvider),
+  );
 });
 
 final dbHelperProvider = Provider<DbHelper>((ref) {

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/network/sync_service.dart';
 import '../../../core/providers/global_providers.dart';
 import '../../../core/services/notification_service.dart';
 import '../data/local_reminder_repository.dart';
@@ -7,14 +8,16 @@ import '../data/reminder_model.dart';
 final remindersProvider = StateNotifierProvider<RemindersNotifier, List<ReminderModel>>((ref) {
   final repo = ref.watch(localReminderRepositoryProvider);
   final notifierService = ref.watch(notificationServiceProvider);
-  return RemindersNotifier(repo, notifierService);
+  final syncService = ref.watch(syncServiceProvider);
+  return RemindersNotifier(repo, notifierService, syncService);
 });
 
 class RemindersNotifier extends StateNotifier<List<ReminderModel>> {
   final LocalReminderRepository _repository;
   final NotificationService _notificationService;
+  final SyncService _syncService;
 
-  RemindersNotifier(this._repository, this._notificationService) : super([]) {
+  RemindersNotifier(this._repository, this._notificationService, this._syncService) : super([]) {
     loadReminders();
   }
 
@@ -79,7 +82,17 @@ class RemindersNotifier extends StateNotifier<List<ReminderModel>> {
     state = state.where((r) => r.id != id).toList();
   }
 
-  // Inject synced server reminders (triggered by sync service later)
+  // Sync state with cloud database
+  Future<void> syncWithCloud() async {
+    try {
+      final consolidated = await _syncService.syncReminders();
+      state = consolidated..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Inject synced server reminders manually if needed
   void setReminders(List<ReminderModel> newList) {
     state = newList..sort((a, b) => a.dueDate.compareTo(b.dueDate));
   }
