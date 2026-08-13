@@ -35,8 +35,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _checkBiometrics() async {
+    final bioPref = await ref.read(secureStorageProvider).read('biometrics_enabled');
     final canAuth = await ref.read(biometricProvider).canAuthenticate();
-    if (canAuth) {
+    
+    if (canAuth && bioPref != 'false') {
       setState(() {
         _biometricsAvailable = true;
       });
@@ -44,6 +46,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (savedUsername != null) {
         _userController.text = savedUsername;
       }
+    } else {
+      setState(() {
+        _biometricsAvailable = false;
+      });
     }
   }
 

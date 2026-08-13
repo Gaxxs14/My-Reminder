@@ -36,11 +36,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final avatar = await storage.read('user_avatar') ?? '👤';
     final imagePath = await storage.read('user_photo_path');
     final token = await storage.getToken();
+    final bioPref = await storage.read('biometrics_enabled');
 
     setState(() {
       _selectedAvatar = avatar;
       _profileImagePath = (imagePath != null && File(imagePath).existsSync()) ? imagePath : null;
-      _biometricsEnabled = token != null;
+      _biometricsEnabled = bioPref != null ? (bioPref == 'true') : (token != null);
     });
   }
 
@@ -396,13 +397,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       subtitle: const Text('Desbloqueo rápido con huella/rostro'),
                       value: _biometricsEnabled,
                       activeTrackColor: AppTheme.accentIndigo,
-                      onChanged: (val) {
+                      onChanged: (val) async {
                         setState(() => _biometricsEnabled = val);
-                        AppToast.show(
-                          context,
-                          message: val ? 'Biometría lista en inicio' : 'Biometría desactivada',
-                          type: AppToastType.info,
-                        );
+                        await ref.read(secureStorageProvider).write('biometrics_enabled', val ? 'true' : 'false');
+                        if (context.mounted) {
+                          AppToast.show(
+                            context,
+                            message: val ? 'Biometría activada en inicio' : 'Biometría desactivada completamente',
+                            type: val ? AppToastType.success : AppToastType.warning,
+                          );
+                        }
                       },
                     ),
                   ],

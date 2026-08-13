@@ -208,138 +208,249 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  // 100% CLEAN 3-DOTS OPTIONS & TOOLS MENU (Zero Truncation!)
+  // HIGH-END CATEGORIZED GLASSMORPHISM TOOLS MENU
   void _showToolsMenu(BuildContext context, bool isDark) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: isDark ? AppTheme.surfaceDark : Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (context) {
         return Container(
-          padding: const EdgeInsets.all(24),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+          height: MediaQuery.of(context).size.height * 0.85,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                const SizedBox(height: 16),
-                Text(
-                  'Herramientas & Opciones',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                  ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Herramientas & Opciones',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : AppTheme.textPrimaryLight,
                 ),
-                const SizedBox(height: 20),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Selecciona una función de la suite de productividad',
+                style: TextStyle(fontSize: 12, color: isDark ? Colors.white54 : Colors.grey[600]),
+              ),
+              const SizedBox(height: 20),
 
-                ListTile(
-                  leading: const Icon(Icons.search_rounded, color: AppTheme.primaryDark),
-                  title: const Text('Búsqueda Global'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    showModalBottomSheet(context: context, isScrollControlled: true, builder: (ctx) => const GlobalSearchSheet());
-                  },
+              Expanded(
+                child: ListView(
+                  children: [
+                    _buildToolSectionHeader('INTELIGENCIA & BÚSQUEDA', isDark),
+                    const SizedBox(height: 10),
+                    _buildToolTile(
+                      icon: Icons.search_rounded,
+                      color: AppTheme.primaryDark,
+                      title: 'Búsqueda Global Unificada',
+                      subtitle: 'Buscar en tareas, notas, hábitos y equipos',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        showModalBottomSheet(context: context, isScrollControlled: true, builder: (ctx) => const GlobalSearchSheet());
+                      },
+                      isDark: isDark,
+                    ),
+                    _buildToolTile(
+                      icon: Icons.mic_rounded,
+                      color: AppTheme.accentTeal,
+                      title: 'Asistente IA por Voz',
+                      subtitle: 'Habla y crea compromisos con IA',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const AssistantScreen()));
+                      },
+                      isDark: isDark,
+                    ),
+                    _buildToolTile(
+                      icon: Icons.camera_alt_outlined,
+                      color: Colors.purpleAccent,
+                      title: 'Escáner OCR de Fotos',
+                      subtitle: 'Extraer tareas de imágenes y notas',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _showScanOptions();
+                      },
+                      isDark: isDark,
+                    ),
+
+                    const SizedBox(height: 20),
+                    _buildToolSectionHeader('PRODUCTIVIDAD & ENFOQUE', isDark),
+                    const SizedBox(height: 10),
+                    _buildToolTile(
+                      icon: Icons.timer_outlined,
+                      color: AppTheme.primaryDark,
+                      title: 'Temporizador Pomodoro & Enfoque',
+                      subtitle: 'Ciclos de 25 min + música ambiental',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const PomodoroScreen()));
+                      },
+                      isDark: isDark,
+                    ),
+                    _buildToolTile(
+                      icon: Icons.analytics_outlined,
+                      color: AppTheme.accentTeal,
+                      title: 'Dashboard & Analítica',
+                      subtitle: 'Gráficos de eficiencia y reportes PDF',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const AnalyticsScreen()));
+                      },
+                      isDark: isDark,
+                    ),
+                    _buildToolTile(
+                      icon: Icons.emoji_events_outlined,
+                      color: Colors.amber,
+                      title: 'Misiones RPG & Insignias',
+                      subtitle: 'Reclama XP y desbloquea medallas',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const QuestsScreen()));
+                      },
+                      isDark: isDark,
+                    ),
+                    _buildToolTile(
+                      icon: Icons.view_kanban_outlined,
+                      color: Colors.blueAccent,
+                      title: 'Tablero Kanban',
+                      subtitle: 'Organiza por columnas (Por Hacer / Hecho)',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const KanbanScreen()));
+                      },
+                      isDark: isDark,
+                    ),
+
+                    const SizedBox(height: 20),
+                    _buildToolSectionHeader('BIENESTAR & CONFIGURACIÓN', isDark),
+                    const SizedBox(height: 10),
+                    _buildToolTile(
+                      icon: Icons.mood_outlined,
+                      color: Colors.purpleAccent,
+                      title: 'Registro de Ánimo (Mood Tracker)',
+                      subtitle: 'Seguimiento emocional diario',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        showModalBottomSheet(context: context, isScrollControlled: true, builder: (ctx) => const MoodTrackerSheet());
+                      },
+                      isDark: isDark,
+                    ),
+                    _buildToolTile(
+                      icon: isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                      color: AppTheme.primaryDark,
+                      title: isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro',
+                      subtitle: 'Alternar colores de interfaz',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        ref.read(appThemeModeProvider.notifier).toggleTheme();
+                      },
+                      isDark: isDark,
+                    ),
+                    _buildToolTile(
+                      icon: Icons.sync_rounded,
+                      color: AppTheme.accentTeal,
+                      title: 'Sincronizar Nube Ahora',
+                      subtitle: 'Guardar cambios en backend Render',
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _syncData();
+                      },
+                      isDark: isDark,
+                    ),
+
+                    const SizedBox(height: 20),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
+                      ),
+                      child: ListTile(
+                        leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+                        title: const Text(
+                          'Cerrar Sesión',
+                          style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                        ),
+                        onTap: () async {
+                          Navigator.of(context).pop();
+                          await ref.read(authStateProvider.notifier).logout();
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
                 ),
-                ListTile(
-                  leading: const Icon(Icons.mic_rounded, color: AppTheme.accentTeal),
-                  title: const Text('Asistente IA por Voz'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const AssistantScreen()));
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.camera_alt_outlined, color: Colors.purpleAccent),
-                  title: const Text('Escáner OCR de Fotos'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    _showScanOptions();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.timer_outlined, color: AppTheme.primaryDark),
-                  title: const Text('Temporizador Pomodoro & Enfoque'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const PomodoroScreen()));
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.analytics_outlined, color: AppTheme.accentTeal),
-                  title: const Text('Dashboard & Analítica'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const AnalyticsScreen()));
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.emoji_events_outlined, color: Colors.amber),
-                  title: const Text('Misiones RPG & Insignias'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const QuestsScreen()));
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.view_kanban_outlined, color: Colors.blueAccent),
-                  title: const Text('Tablero Kanban'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const KanbanScreen()));
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.mood_outlined, color: Colors.purpleAccent),
-                  title: const Text('Registro de Ánimo (Mood Tracker)'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    showModalBottomSheet(context: context, isScrollControlled: true, builder: (ctx) => const MoodTrackerSheet());
-                  },
-                ),
-                ListTile(
-                  leading: Icon(
-                    isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
-                    color: AppTheme.primaryDark,
-                  ),
-                  title: Text(isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    ref.read(appThemeModeProvider.notifier).toggleTheme();
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.sync_rounded, color: AppTheme.accentTeal),
-                  title: const Text('Sincronizar Datos Ahora'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    _syncData();
-                  },
-                ),
-                const Divider(height: 24),
-                ListTile(
-                  leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-                  title: const Text(
-                    'Cerrar Sesión',
-                    style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
-                  ),
-                  onTap: () async {
-                    Navigator.of(context).pop();
-                    await ref.read(authStateProvider.notifier).logout();
-                  },
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
+    );
+  }
+
+  Widget _buildToolSectionHeader(String title, bool isDark) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 1.2,
+        color: AppTheme.primaryDark,
+      ),
+    );
+  }
+
+  Widget _buildToolTile({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.surfaceDarkElevated : Colors.grey[100],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: ListTile(
+          onTap: onTap,
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          title: Text(
+            title,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+          subtitle: Text(
+            subtitle,
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+          trailing: const Icon(Icons.chevron_right_rounded, size: 18, color: Colors.grey),
+        ),
+      ),
     );
   }
 
@@ -358,7 +469,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }).toList();
 
     final List<Widget> screens = [
-      _buildRemindersBody(context, filteredReminders, isDark, usernameAsync),
+      _buildRemindersBody(context, filteredReminders, isDark, usernameAsync, reminders),
       const HabitsScreen(),
       const NotesScreen(),
       const WorkspacesScreen(),
@@ -443,6 +554,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     List<ReminderModel> filteredReminders,
     bool isDark,
     AsyncValue<String> usernameAsync,
+    List<ReminderModel> allReminders,
   ) {
     final monthName = DateFormat('MMMM yyyy', 'es_US').format(_selectedDate);
 
@@ -522,37 +634,65 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             const WeatherWidget(),
             const SizedBox(height: 16),
 
-            // 3. ELEGANT CALENDAR DATE STRIP HEADER
+            // 3. OVERHAULED CALENDAR DATE STRIP HEADER
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  monthName[0].toUpperCase() + monthName.substring(1),
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                GestureDetector(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _selectedDate,
+                      firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (picked != null) {
+                      setState(() => _selectedDate = picked);
+                    }
+                  },
+                  child: Row(
+                    children: [
+                      Text(
+                        monthName[0].toUpperCase() + monthName.substring(1),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.arrow_drop_down_rounded, color: AppTheme.primaryDark),
+                    ],
                   ),
                 ),
-                TextButton(
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryDark.withValues(alpha: 0.2),
+                    foregroundColor: AppTheme.primaryDark,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.today_rounded, size: 16),
+                  label: const Text('Hoy', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   onPressed: () {
                     setState(() {
                       _selectedDate = DateTime.now();
                     });
                   },
-                  child: const Text('Hoy', style: TextStyle(color: AppTheme.primaryDark, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
 
+            // LUXURY HORIZONTAL CALENDAR STRIP
             SizedBox(
-              height: 74,
+              height: 84,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: 14,
+                itemCount: 21,
                 itemBuilder: (context, index) {
-                  final day = DateTime.now().add(Duration(days: index));
+                  final day = DateTime.now().subtract(const Duration(days: 2)).add(Duration(days: index));
                   final isSelected = day.year == _selectedDate.year &&
                       day.month == _selectedDate.month &&
                       day.day == _selectedDate.day;
@@ -560,8 +700,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   final dayName = DateFormat('EEE', 'es_US').format(day).toUpperCase();
                   final dayNumber = DateFormat('d').format(day);
 
+                  // Check if any reminder is scheduled for this day
+                  final hasTasksOnDay = allReminders.any((r) =>
+                      r.dueDate.year == day.year &&
+                      r.dueDate.month == day.month &&
+                      r.dueDate.day == day.day);
+
                   return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
+                    padding: const EdgeInsets.only(right: 10.0),
                     child: GestureDetector(
                       onTap: () {
                         setState(() {
@@ -570,23 +716,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       },
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        width: 58,
+                        width: 62,
                         decoration: BoxDecoration(
+                          gradient: isSelected
+                              ? const LinearGradient(
+                                  colors: [Color(0xFF38BDF8), Color(0xFF2DD4BF)],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                )
+                              : null,
                           color: isSelected
-                              ? AppTheme.primaryDark
+                              ? null
                               : (isDark ? AppTheme.surfaceDark : Colors.white),
-                          borderRadius: BorderRadius.circular(18),
+                          borderRadius: BorderRadius.circular(22),
                           border: Border.all(
                             color: isSelected
-                                ? AppTheme.primaryDark
+                                ? Colors.transparent
                                 : (isDark ? AppTheme.glassBorder : Colors.grey[200]!),
                             width: 1.5,
                           ),
                           boxShadow: isSelected
                               ? [
                                   BoxShadow(
-                                    color: AppTheme.primaryDark.withValues(alpha: 0.35),
-                                    blurRadius: 10,
+                                    color: AppTheme.primaryDark.withValues(alpha: 0.4),
+                                    blurRadius: 12,
                                     offset: const Offset(0, 4),
                                   ),
                                 ]
@@ -595,25 +748,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(
-                              dayName,
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
                                 color: isSelected
-                                    ? Colors.black
-                                    : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                                    ? Colors.black.withValues(alpha: 0.15)
+                                    : (isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey[100]),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                dayName,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w800,
+                                  color: isSelected
+                                      ? Colors.black
+                                      : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                                ),
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 6),
                             Text(
                               dayNumber,
                               style: TextStyle(
-                                fontSize: 18,
+                                fontSize: 20,
                                 fontWeight: FontWeight.bold,
                                 color: isSelected
                                     ? Colors.black
                                     : (isDark ? Colors.white : AppTheme.textPrimaryLight),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            // Glowing Dot Indicator for tasks
+                            Container(
+                              width: 5,
+                              height: 5,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: hasTasksOnDay
+                                    ? (isSelected ? Colors.black : AppTheme.accentTeal)
+                                    : Colors.transparent,
                               ),
                             ),
                           ],
