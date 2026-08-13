@@ -55,6 +55,20 @@ namespace MyReminder.API.Controllers
                 // Process request with Gemini Service using server local time for relative references
                 var geminiJsonResult = await _geminiService.ProcessVoiceTextAsync(dto.Message, DateTime.Now);
 
+                if (geminiJsonResult.Contains("```"))
+                {
+                    var firstLineBreak = geminiJsonResult.IndexOf('\n');
+                    var lastBackticks = geminiJsonResult.LastIndexOf("```");
+                    if (firstLineBreak >= 0 && lastBackticks > firstLineBreak)
+                    {
+                        geminiJsonResult = geminiJsonResult.Substring(firstLineBreak + 1, lastBackticks - firstLineBreak - 1).Trim();
+                    }
+                    else
+                    {
+                        geminiJsonResult = geminiJsonResult.Replace("```json", "").Replace("```", "").Trim();
+                    }
+                }
+
                 using var doc = JsonDocument.Parse(geminiJsonResult);
                 var root = doc.RootElement;
 
@@ -132,6 +146,20 @@ namespace MyReminder.API.Controllers
             try
             {
                 var geminiJson = await _geminiService.ProcessImageOcrAsync(dto.ImageBase64, dto.MimeType, DateTime.Now);
+
+                if (geminiJson.Contains("```"))
+                {
+                    var firstLineBreak = geminiJson.IndexOf('\n');
+                    var lastBackticks = geminiJson.LastIndexOf("```");
+                    if (firstLineBreak >= 0 && lastBackticks > firstLineBreak)
+                    {
+                        geminiJson = geminiJson.Substring(firstLineBreak + 1, lastBackticks - firstLineBreak - 1).Trim();
+                    }
+                    else
+                    {
+                        geminiJson = geminiJson.Replace("```json", "").Replace("```", "").Trim();
+                    }
+                }
 
                 using var doc = JsonDocument.Parse(geminiJson);
                 var root = doc.RootElement;

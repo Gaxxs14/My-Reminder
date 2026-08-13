@@ -67,7 +67,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
     } catch (e) {
       if (mounted) {
-        AppToast.show(context, message: 'Error al sincronizar: $e', type: AppToastType.error);
+        AppToast.show(context, message: 'Guardado localmente. Se sincronizará con la nube al reconectar.', type: AppToastType.info);
       }
     } finally {
       if (mounted) setState(() => _isSyncing = false);
@@ -87,9 +87,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       final pickedFile = await _picker.pickImage(
         source: source,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 85,
+        maxWidth: 600,
+        maxHeight: 600,
+        imageQuality: 60,
       );
 
       if (pickedFile == null) return;
@@ -146,9 +146,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         }
       }
     } catch (e) {
-      if (mounted) Navigator.of(context).pop();
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
       if (mounted) {
-        AppToast.show(context, message: 'Error procesando OCR: $e', type: AppToastType.error);
+        AppToast.show(
+          context,
+          message: 'No se pudo procesar la imagen por IA. Intenta con una foto más clara o agrega la tarea manualmente.',
+          type: AppToastType.warning,
+        );
       }
     }
   }

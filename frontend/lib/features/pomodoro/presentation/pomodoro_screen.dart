@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../habits/presentation/habits_provider.dart';
@@ -16,21 +17,59 @@ class _PomodoroScreenState extends ConsumerState<PomodoroScreen> {
   static const int _defaultSeconds = 25 * 60; // 25 Minutes
   int _remainingSeconds = _defaultSeconds;
   Timer? _timer;
+  Timer? _ambientSoundTimer;
   bool _isRunning = false;
   String _selectedSound = 'Lluvia';
   bool _isZenMode = false;
+  final FlutterTts _flutterTts = FlutterTts();
 
   final List<Map<String, dynamic>> _sounds = [
-    {'name': 'Sin Audio', 'icon': Icons.volume_off_rounded},
-    {'name': 'Lluvia', 'icon': Icons.water_drop_rounded},
-    {'name': 'Bosque', 'icon': Icons.park_rounded},
-    {'name': 'Café', 'icon': Icons.local_cafe_rounded},
-    {'name': 'Ruido Blanco', 'icon': Icons.graphic_eq_rounded},
+    {'name': 'Sin Audio', 'icon': Icons.volume_off_rounded, 'phrase': ''},
+    {'name': 'Lluvia', 'icon': Icons.water_drop_rounded, 'phrase': 'shh... ssssh... chhh'},
+    {'name': 'Bosque', 'icon': Icons.park_rounded, 'phrase': 'uuu... piiu... ssshh'},
+    {'name': 'Café', 'icon': Icons.local_cafe_rounded, 'phrase': 'murmullo ambiental constante'},
+    {'name': 'Ruido Blanco', 'icon': Icons.graphic_eq_rounded, 'phrase': 'shhhhh... shhhhh'},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _initTts();
+  }
+
+  Future<void> _initTts() async {
+    try {
+      await _flutterTts.setLanguage('es-ES');
+      await _flutterTts.setSpeechRate(0.4);
+      await _flutterTts.setPitch(0.8);
+    } catch (_) {}
+  }
+
+  void _startAmbientLoop() {
+    _stopAmbientLoop();
+    if (_selectedSound == 'Sin Audio') return;
+
+    _ambientSoundTimer = Timer.periodic(const Duration(seconds: 12), (timer) {
+      if (_isRunning && _selectedSound != 'Sin Audio') {
+        final snd = _sounds.firstWhere((s) => s['name'] == _selectedSound, orElse: () => _sounds[0]);
+        final phrase = snd['phrase'] as String;
+        if (phrase.isNotEmpty) {
+          _flutterTts.speak(phrase);
+        }
+      }
+    });
+  }
+
+  void _stopAmbientLoop() {
+    _ambientSoundTimer?.cancel();
+    _flutterTts.stop();
+  }
 
   void _startTimer() {
     if (_isRunning) return;
     setState(() => _isRunning = true);
+    _startAmbientLoop();
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_remainingSeconds > 0) {
         setState(() {
@@ -38,6 +77,7 @@ class _PomodoroScreenState extends ConsumerState<PomodoroScreen> {
         });
       } else {
         _timer?.cancel();
+        _stopAmbientLoop();
         setState(() => _isRunning = false);
         _onPomodoroCompleted();
       }
@@ -46,20 +86,26 @@ class _PomodoroScreenState extends ConsumerState<PomodoroScreen> {
 
   void _pauseTimer() {
     _timer?.cancel();
+    _stopAmbientLoop();
     setState(() => _isRunning = false);
   }
 
   void _resetTimer() {
     _timer?.cancel();
+    _stopAmbientLoop();
     setState(() {
       _isRunning = false;
       _remainingSeconds = _defaultSeconds;
     });
   }
 
-  void _onPomodoroCompleted() {
+  void _onPomodoroCompleted() async {
     ref.read(habitsProvider.notifier).addPoints(25);
-    AppToast.show(context, message: '🎉 ¡Sesión Pomodoro completada! (+25 XP)', type: AppToastType.success);
+    await _flutterTts.setSpeechRate(0.5);
+    await _flutterTts.speak('¡Felicidades! Has completado exitosamente tu sesión de concentración Pomodoro.');
+    if (mounted) {
+      AppToast.show(context, message: '🎉 ¡Sesión Pomodoro completada! (+25 XP)', type: AppToastType.success);
+    }
   }
 
   String _formatTime(int totalSeconds) {
@@ -71,6 +117,8 @@ class _PomodoroScreenState extends ConsumerState<PomodoroScreen> {
   @override
   void dispose() {
     _timer?.cancel();
+    _ambientSoundTimer?.cancel();
+    _flutterTts.stop();
     super.dispose();
   }
 
@@ -220,7 +268,10 @@ class _PomodoroScreenState extends ConsumerState<PomodoroScreen> {
                         onSelected: (selected) {
                           if (selected) {
                             setState(() => _selectedSound = snd['name'] as String);
-                            AppToast.show(context, message: 'Audio: ${snd['name']}', type: AppToastType.info);
+                            if (_isRunning) {
+                              _startAmbientLoop();
+                            }
+                            AppToast.show(context, message: 'Audio ambiental: ${snd['name']}', type: AppToastType.info);
                           }
                         },
                         labelStyle: TextStyle(
