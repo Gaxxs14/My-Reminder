@@ -9,6 +9,7 @@ import 'add_reminder_sheet.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../assistant/presentation/assistant_screen.dart';
 import '../../habits/presentation/habits_screen.dart';
+import '../../notes/presentation/notes_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -84,6 +85,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final List<Widget> screens = [
       _buildRemindersBody(context, filteredReminders, isDark, usernameAsync),
       const HabitsScreen(),
+      const NotesScreen(),
     ];
 
     return Scaffold(
@@ -106,6 +108,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             icon: Icon(Icons.spa_outlined),
             activeIcon: Icon(Icons.spa),
             label: 'Hábitos',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.article_outlined),
+            activeIcon: Icon(Icons.article),
+            label: 'Notas',
           ),
         ],
       ),

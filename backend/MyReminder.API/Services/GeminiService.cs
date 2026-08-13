@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
+using MyReminder.API.Models;
 
 namespace MyReminder.API.Services
 {
@@ -83,7 +85,6 @@ Instrucciones para 'action':
             var responseBody = await response.Content.ReadAsStringAsync();
             using var doc = JsonDocument.Parse(responseBody);
             
-            // Extract the generated text from Gemini's response structure
             var text = doc.RootElement
                 .GetProperty("candidates")[0]
                 .GetProperty("content")
@@ -92,6 +93,88 @@ Instrucciones para 'action':
                 .GetString();
 
             return text ?? "{}";
+        }
+
+        public async Task<string> SearchNotesSemanticallyAsync(string query, List<Note> userNotes)
+        {
+            var apiKey = _configuration["Gemini:ApiKey"] ?? "";
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                throw new InvalidOperationException("La clave API de Gemini no está configurada.");
+            }
+
+            var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={apiKey}";
+
+            var systemInstruction = @"
+Eres el Buscador Semántico Inteligente de la aplicación 'My-Reminder'.
+Tu tarea es buscar en las notas personales del usuario y determinar cuáles de ellas se relacionan o responden directamente a su consulta.
+Debes analizar el contenido y significado de cada nota, y devolver ÚNICAMENTE un objeto JSON con el siguiente formato:
+{
+  ""matches"": [
+    {
+      ""id"": ""id_de_la_nota_coincidente"",
+      ""relevanceReason"": ""Breve justificación en español de por qué esta nota es relevante para la consulta (ej: 'Menciona los regalos que estabas pensando comprar.')""
+    }
+  ]
+}
+Si ninguna nota tiene relación directa con la búsqueda, devuelve la lista 'matches' vacía: { ""matches"": [] }.
+No respondas nada más que el JSON puro, sin bloques de código markdown ni texto explicativo.
+";
+
+            // Format notes list for Gemini context
+            var builder = new StringBuilder();
+            builder.AppendLine($"Consulta del usuario: \"{query}\"");
+            builder.AppendLine("\nLista de Notas Personales:");
+            foreach (var note in userNotes)
+            {
+                builder.AppendLine($"ID: {note.Id}");
+                builder.AppendLine($"Título: {note.Title}");
+                builder.AppendLine($"Contenido: {note.Content}");
+                builder.AppendLine("---");
+            }
+
+            var payload = new
+            {
+                contents = new[]
+                {
+                    new
+                    {
+                        parts = new[]
+                        {
+                            new { text = builder.ToString() }
+                        }
+                    }
+                },
+                systemInstruction = new
+                {
+                    parts = new[]
+                    {
+                        new { text = systemInstruction }
+                    }
+                },
+                generationConfig = new
+                {
+                    responseMimeType = "application/json"
+                }
+            };
+
+            var jsonPayload = JsonSerializer.Serialize(payload);
+            var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync(url, content);
+            response.EnsureSuccessStatusCode();
+
+            var responseBody = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(responseBody);
+            
+            var text = doc.RootElement
+                .GetProperty("candidates")[0]
+                .GetProperty("content")
+                .GetProperty("parts")[0]
+                .GetProperty("text")
+                .GetString();
+
+            return text ?? "{\"matches\":[]}";
         }
     }
 }

@@ -12,6 +12,7 @@ namespace MyReminder.API.Data
         public DbSet<User> Users { get; set; }
         public DbSet<Reminder> Reminders { get; set; }
         public DbSet<Habit> Habits { get; set; }
+        public DbSet<Note> Notes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -30,6 +31,12 @@ namespace MyReminder.API.Data
                 .HasForeignKey(h => h.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<Note>()
+                .HasOne(n => n.User)
+                .WithMany()
+                .HasForeignKey(n => n.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             // Indexing for faster lookups
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.Username)
@@ -40,6 +47,9 @@ namespace MyReminder.API.Data
 
             modelBuilder.Entity<Habit>()
                 .HasIndex(h => h.UserId);
+
+            modelBuilder.Entity<Note>()
+                .HasIndex(n => n.UserId);
         }
     }
 }
