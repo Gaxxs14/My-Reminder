@@ -34,9 +34,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   final List<Map<String, dynamic>> _categories = [
     {'name': 'Todas', 'color': AppTheme.primaryDark},
-    {'name': 'Trabajo', 'color': Color(0xFF38BDF8)},
-    {'name': 'Personal', 'color': Color(0xFF2DD4BF)},
-    {'name': 'Salud', 'color': Color(0xFFF43F5E)},
+    {'name': 'Trabajo', 'color': const Color(0xFF38BDF8)},
+    {'name': 'Personal', 'color': const Color(0xFF2DD4BF)},
+    {'name': 'Salud', 'color': const Color(0xFFF43F5E)},
   ];
 
   Future<void> _syncData() async {
@@ -199,6 +199,92 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
+  void _showProfileMenu(BuildContext context, bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (context) {
+        final usernameAsync = ref.read(usernameProvider);
+        return Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              CircleAvatar(
+                radius: 32,
+                backgroundColor: AppTheme.primaryDark.withValues(alpha: 0.2),
+                child: Text(
+                  usernameAsync.valueOrNull?.substring(0, 1).toUpperCase() ?? 'U',
+                  style: const TextStyle(
+                    color: AppTheme.primaryDark,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 26,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                usernameAsync.valueOrNull ?? 'Usuario',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Sesión Activa - Sincronizado en la nube',
+                style: TextStyle(fontSize: 12, color: AppTheme.accentTeal),
+              ),
+              const SizedBox(height: 24),
+
+              ListTile(
+                leading: Icon(
+                  isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
+                  color: AppTheme.primaryDark,
+                ),
+                title: Text(isDark ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  ref.read(appThemeModeProvider.notifier).toggleTheme();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.sync_rounded, color: AppTheme.accentTeal),
+                title: const Text('Sincronizar Datos Ahora'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _syncData();
+                },
+              ),
+              const Divider(height: 24),
+              ListTile(
+                leading: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+                title: const Text(
+                  'Cerrar Sesión',
+                  style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                ),
+                onTap: () async {
+                  Navigator.of(context).pop();
+                  await ref.read(authStateProvider.notifier).logout();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -221,124 +307,70 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ];
 
     return Scaffold(
-      body: Stack(
-        children: [
-          screens[_currentIndex],
-          
-          // Floating Glassmorphism Navigation Bar
-          Positioned(
-            left: 20,
-            right: 20,
-            bottom: 16,
-            child: Container(
-              height: 64,
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: isDark
-                    ? AppTheme.surfaceDark.withValues(alpha: 0.92)
-                    : Colors.white.withValues(alpha: 0.92),
-                borderRadius: BorderRadius.circular(32),
-                border: Border.all(
-                  color: isDark ? AppTheme.glassBorder : Colors.grey[200]!,
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
-                    blurRadius: 24,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildNavItem(0, Icons.calendar_today_rounded, Icons.calendar_month_rounded, 'Agenda', isDark),
-                  _buildNavItem(1, Icons.spa_outlined, Icons.spa_rounded, 'Hábitos', isDark),
-                  _buildNavItem(2, Icons.article_outlined, Icons.article_rounded, 'Notas', isDark),
-                  _buildNavItem(3, Icons.groups_outlined, Icons.groups_rounded, 'Equipo', isDark),
-                ],
-              ),
-            ),
+      body: screens[_currentIndex],
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        elevation: 0,
+        backgroundColor: isDark ? AppTheme.surfaceDark : Colors.white,
+        indicatorColor: AppTheme.primaryDark.withValues(alpha: 0.18),
+        onDestinationSelected: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.calendar_month_outlined),
+            selectedIcon: Icon(Icons.calendar_month_rounded, color: AppTheme.primaryDark),
+            label: 'Agenda',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.spa_outlined),
+            selectedIcon: Icon(Icons.spa_rounded, color: AppTheme.primaryDark),
+            label: 'Hábitos',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.article_outlined),
+            selectedIcon: Icon(Icons.article_rounded, color: AppTheme.primaryDark),
+            label: 'Notas',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.groups_outlined),
+            selectedIcon: Icon(Icons.groups_rounded, color: AppTheme.primaryDark),
+            label: 'Compartido',
           ),
         ],
       ),
       floatingActionButton: _currentIndex == 0
-          ? Padding(
-              padding: const EdgeInsets.only(bottom: 72.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF38BDF8), Color(0xFF2DD4BF)],
+          ? Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF38BDF8), Color(0xFF2DD4BF)],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primaryDark.withValues(alpha: 0.4),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primaryDark.withValues(alpha: 0.4),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: FloatingActionButton(
-                  backgroundColor: Colors.transparent,
-                  foregroundColor: Colors.black,
-                  elevation: 0,
-                  onPressed: () {
-                    showModalBottomSheet(
-                      context: context,
-                      isScrollControlled: true,
-                      builder: (context) => const AddReminderSheet(),
-                    );
-                  },
-                  child: const Icon(Icons.add_rounded, size: 30),
-                ),
+                ],
+              ),
+              child: FloatingActionButton(
+                backgroundColor: Colors.transparent,
+                foregroundColor: Colors.black,
+                elevation: 0,
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (context) => const AddReminderSheet(),
+                  );
+                },
+                child: const Icon(Icons.add_rounded, size: 30),
               ),
             )
           : null,
-    );
-  }
-
-  Widget _buildNavItem(int index, IconData icon, IconData activeIcon, String label, bool isDark) {
-    final isSelected = _currentIndex == index;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          _currentIndex = index;
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppTheme.primaryDark.withValues(alpha: 0.15)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              isSelected ? activeIcon : icon,
-              size: 22,
-              color: isSelected
-                  ? AppTheme.primaryDark
-                  : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
-            ),
-            if (isSelected) ...[
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryDark,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
     );
   }
 
@@ -350,104 +382,110 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   ) {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 16.0, bottom: 90.0),
+        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 12.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. HEADER ROW
+            // 1. 100% RESPONSIVE HEADER ROW
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 22,
-                      backgroundColor: AppTheme.primaryDark.withValues(alpha: 0.2),
-                      child: Text(
-                        usernameAsync.valueOrNull?.substring(0, 1).toUpperCase() ?? 'U',
-                        style: const TextStyle(
-                          color: AppTheme.primaryDark,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
+                GestureDetector(
+                  onTap: () => _showProfileMenu(context, isDark),
+                  child: CircleAvatar(
+                    radius: 20,
+                    backgroundColor: AppTheme.primaryDark.withValues(alpha: 0.2),
+                    child: Text(
+                      usernameAsync.valueOrNull?.substring(0, 1).toUpperCase() ?? 'U',
+                      style: const TextStyle(
+                        color: AppTheme.primaryDark,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        usernameAsync.when(
-                          data: (username) => Text(
-                            '¡Hola, $username!',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                            ),
-                          ),
-                          loading: () => const Text('Cargando...'),
-                          error: (err, stack) => const Text('¡Hola!'),
-                        ),
-                        Text(
-                          'Tus compromisos de hoy',
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      usernameAsync.when(
+                        data: (username) => Text(
+                          '¡Hola, $username!',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 12,
-                            color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : AppTheme.textPrimaryLight,
                           ),
                         ),
-                      ],
-                    ),
-                  ],
+                        loading: () => const Text('Cargando...'),
+                        error: (err, stack) => const Text('¡Hola!'),
+                      ),
+                      Text(
+                        'Organiza tus tareas de hoy',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _isSyncing
-                        ? const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8.0),
-                            child: SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryDark),
-                            ),
-                          )
-                        : IconButton(
-                            icon: const Icon(Icons.sync_rounded),
-                            onPressed: _syncData,
-                            tooltip: 'Sincronizar',
-                          ),
+                    if (_isSyncing)
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryDark),
+                      )
+                    else
+                      IconButton(
+                        icon: const Icon(Icons.sync_rounded, size: 22),
+                        onPressed: _syncData,
+                        tooltip: 'Sincronizar',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      ),
                     IconButton(
-                      icon: const Icon(Icons.camera_alt_outlined),
+                      icon: const Icon(Icons.camera_alt_outlined, size: 22),
                       onPressed: _showScanOptions,
-                      tooltip: 'Escanear OCR',
+                      tooltip: 'Escáner OCR',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.mic_none_rounded),
+                      icon: const Icon(Icons.mic_none_rounded, size: 22),
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(builder: (context) => const AssistantScreen()),
                         );
                       },
                       tooltip: 'Asistente IA',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                     ),
                     IconButton(
-                      icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
-                      onPressed: () => ref.read(appThemeModeProvider.notifier).toggleTheme(),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
-                      onPressed: () async {
-                        await ref.read(authStateProvider.notifier).logout();
-                      },
+                      icon: const Icon(Icons.more_vert_rounded, size: 22),
+                      onPressed: () => _showProfileMenu(context, isDark),
+                      tooltip: 'Menú & Perfil',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                     ),
                   ],
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // 2. CALENDAR STRIP (Horizontal Date Picker)
             SizedBox(
-              height: 76,
+              height: 74,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 itemCount: 14,
@@ -461,7 +499,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   final dayNumber = DateFormat('d').format(day);
 
                   return Padding(
-                    padding: const EdgeInsets.only(right: 10.0),
+                    padding: const EdgeInsets.only(right: 8.0),
                     child: GestureDetector(
                       onTap: () {
                         setState(() {
@@ -486,7 +524,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ? [
                                   BoxShadow(
                                     color: AppTheme.primaryDark.withValues(alpha: 0.35),
-                                    blurRadius: 12,
+                                    blurRadius: 10,
                                     offset: const Offset(0, 4),
                                   ),
                                 ]
@@ -524,7 +562,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 },
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
             // 3. CATEGORY CHIPS
             SizedBox(
@@ -586,7 +624,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'No tienes tareas agendadas',
+                            'No tienes compromisos agendados',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -595,7 +633,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'Toca el botón "+" para agregar una.',
+                            'Usa el botón "+" para programar uno nuevo.',
                             style: TextStyle(
                               fontSize: 12,
                               color: isDark ? Colors.white30 : Colors.grey[400],

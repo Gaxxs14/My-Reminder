@@ -46,10 +46,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (savedUsername != null) {
         _userController.text = savedUsername;
       }
-      
-      Future.delayed(const Duration(milliseconds: 400), () {
-        if (mounted) _authenticateWithBiometrics();
-      });
     }
   }
 
