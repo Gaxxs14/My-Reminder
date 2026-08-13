@@ -96,7 +96,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowAll");
 
-app.UseHttpsRedirection();
+// Note: HTTPS redirection is handled by Render's load balancer, not the container
+// app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();

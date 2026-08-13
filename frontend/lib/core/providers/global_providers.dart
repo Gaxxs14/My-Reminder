@@ -51,10 +51,10 @@ final dbHelperProvider = Provider<DbHelper>((ref) {
 });
 
 final apiClientProvider = Provider<ApiClient>((ref) {
-  // Use http://10.0.2.2:8080 for Android Emulator, or http://localhost:8080 for iOS/Desktop
-  const String localUrl = 'http://10.0.2.2:8080'; 
+  // ✅ Backend desplegado en Render
+  const String productionUrl = 'https://my-reminder-zu31.onrender.com';
   return ApiClient(
-    baseUrl: localUrl,
+    baseUrl: productionUrl,
     secureStorage: ref.watch(secureStorageProvider),
   );
 });
