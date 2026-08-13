@@ -25,6 +25,7 @@ import '../../workspaces/data/workspace_model.dart';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/widgets/gaxxs_loader.dart';
+import '../../../core/services/permission_service.dart';
 import '../data/reminder_model.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -40,6 +41,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String _selectedCategory = 'Todas';
   bool _isSyncing = false;
   final ImagePicker _picker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(permissionServiceProvider).requestInitialPermissions();
+    });
+  }
 
   final List<Map<String, dynamic>> _categories = [
     {'name': 'Todas', 'color': AppTheme.primaryDark},
@@ -66,6 +75,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _pickAndProcessImage(ImageSource source) async {
+    if (source == ImageSource.camera) {
+      final hasPerm = await ref.read(permissionServiceProvider).requestCameraPermission();
+      if (!hasPerm) {
+        if (mounted) {
+          AppToast.show(context, message: 'Se requiere permiso de cámara para tomar fotos', type: AppToastType.warning);
+        }
+        return;
+      }
+    }
     try {
       final pickedFile = await _picker.pickImage(
         source: source,
@@ -266,9 +284,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       color: AppTheme.accentTeal,
                       title: 'Asistente IA por Voz',
                       subtitle: 'Habla y crea compromisos con IA',
-                      onTap: () {
+                      onTap: () async {
                         Navigator.of(context).pop();
-                        Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const AssistantScreen()));
+                        final hasMic = await ref.read(permissionServiceProvider).requestMicrophonePermission();
+                        if (hasMic && context.mounted) {
+                          Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const AssistantScreen()));
+                        } else if (context.mounted) {
+                          AppToast.show(context, message: 'Se requiere permiso de micrófono para el asistente de voz', type: AppToastType.warning);
+                        }
                       },
                       isDark: isDark,
                     ),
