@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:uuid/uuid.dart'; // We should verify if uuid is in pubspec or we can generate random strings.
+import 'package:uuid/uuid.dart'; 
+import 'package:geolocator/geolocator.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -20,6 +21,13 @@ class _AddReminderSheetState extends ConsumerState<AddReminderSheet> {
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
 
+  // Location fields
+  bool _useLocation = false;
+  final _locationNameController = TextEditingController();
+  final _latitudeController = TextEditingController();
+  final _longitudeController = TextEditingController();
+  final _radiusController = TextEditingController(text: '150');
+
   DateTime _selectedDate = DateTime.now().add(const Duration(minutes: 10));
   TimeOfDay _selectedTime = TimeOfDay.fromDateTime(DateTime.now().add(const Duration(minutes: 10)));
   String _selectedCategory = 'Personal';
@@ -35,7 +43,41 @@ class _AddReminderSheetState extends ConsumerState<AddReminderSheet> {
   void dispose() {
     _titleController.dispose();
     _descController.dispose();
+    _locationNameController.dispose();
+    _latitudeController.dispose();
+    _longitudeController.dispose();
+    _radiusController.dispose();
     super.dispose();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        final request = await Geolocator.requestPermission();
+        if (request == LocationPermission.denied || request == LocationPermission.deniedForever) {
+          if (mounted) {
+            AppToast.show(context, message: 'Permisos de ubicación denegados', type: AppToastType.error);
+          }
+          return;
+        }
+      }
+      final pos = await Geolocator.getCurrentPosition(locationSettings: const LocationSettings(accuracy: LocationAccuracy.high));
+      if (mounted) {
+        setState(() {
+          _latitudeController.text = pos.latitude.toString();
+          _longitudeController.text = pos.longitude.toString();
+          if (_locationNameController.text.isEmpty) {
+            _locationNameController.text = 'Mi Ubicación';
+          }
+        });
+        AppToast.show(context, message: 'Ubicación obtenida correctamente', type: AppToastType.success);
+      }
+    } catch (e) {
+      if (mounted) {
+        AppToast.show(context, message: 'Error obteniendo ubicación: $e', type: AppToastType.error);
+      }
+    }
   }
 
   Future<void> _pickDate() async {
@@ -101,6 +143,12 @@ class _AddReminderSheetState extends ConsumerState<AddReminderSheet> {
       dueDate: _selectedDate,
       status: 'pending',
       isSynced: false,
+      latitude: _useLocation ? double.tryParse(_latitudeController.text) : null,
+      longitude: _useLocation ? double.tryParse(_longitudeController.text) : null,
+      locationName: _useLocation && _locationNameController.text.trim().isNotEmpty
+          ? _locationNameController.text.trim()
+          : null,
+      radiusInMeters: _useLocation ? (double.tryParse(_radiusController.text) ?? 150.0) : null,
     );
 
     ref.read(remindersProvider.notifier).addReminder(newReminder);
@@ -247,6 +295,77 @@ class _AddReminderSheetState extends ConsumerState<AddReminderSheet> {
                   },
                 ),
               ),
+              const SizedBox(height: 20),
+              SwitchListTile(
+                title: const Text('Alarma Geográfica (GPS)'),
+                subtitle: const Text('Fijar un aviso cuando estés cerca'),
+                value: _useLocation,
+                activeTrackColor: AppTheme.primaryDark,
+                onChanged: (val) {
+                  setState(() {
+                    _useLocation = val;
+                  });
+                },
+              ),
+              if (_useLocation) ...[
+                const SizedBox(height: 12),
+                AppTextField(
+                  controller: _locationNameController,
+                  labelText: 'Nombre del Lugar',
+                  hintText: 'ej. Supermercado, Oficina, Casa',
+                  prefixIcon: Icons.place_outlined,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: AppTextField(
+                        controller: _latitudeController,
+                        labelText: 'Latitud',
+                        hintText: 'ej. 19.4326',
+                        prefixIcon: Icons.map,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: AppTextField(
+                        controller: _longitudeController,
+                        labelText: 'Longitud',
+                        hintText: 'ej. -99.1332',
+                        prefixIcon: Icons.map,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: AppTextField(
+                        controller: _radiusController,
+                        labelText: 'Radio (metros)',
+                        hintText: '150',
+                        prefixIcon: Icons.circle_outlined,
+                        keyboardType: TextInputType.number,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryDark,
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      icon: const Icon(Icons.my_location),
+                      label: const Text('Mi GPS'),
+                      onPressed: _getCurrentLocation,
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 28),
 
               // Action buttons

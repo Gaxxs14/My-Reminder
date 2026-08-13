@@ -16,6 +16,12 @@ namespace MyReminder.API.Models
         public string Status { get; set; } = "pending"; // "pending", "completed"
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        // Geo-reminders optional fields
+        public double? Latitude { get; set; }
+        public double? Longitude { get; set; }
+        public string? LocationName { get; set; }
+        public double? RadiusInMeters { get; set; } = 150.0; // Default 150 meters
+
         [JsonIgnore]
         public virtual User? User { get; set; }
     }

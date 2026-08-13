@@ -176,5 +176,88 @@ No respondas nada más que el JSON puro, sin bloques de código markdown ni text
 
             return text ?? "{\"matches\":[]}";
         }
+
+        public async Task<string> ProcessImageOcrAsync(string base64ImageBytes, string mimeType, DateTime serverCurrentTime)
+        {
+            var apiKey = _configuration["Gemini:ApiKey"] ?? "";
+            if (string.IsNullOrWhiteSpace(apiKey))
+            {
+                throw new InvalidOperationException("La clave API de Gemini no está configurada.");
+            }
+
+            // Strip prefix if any
+            if (base64ImageBytes.Contains(","))
+            {
+                base64ImageBytes = base64ImageBytes.Split(',')[1];
+            }
+
+            var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={apiKey}";
+
+            var systemInstruction = $@"
+Eres el Analista OCR Multimodal de la aplicación 'My-Reminder'.
+Tu tarea es inspeccionar la imagen proporcionada (que puede ser un volante, volante de evento, ticket de compra, invitación, folleto o nota escrita a mano) y extraer la información pertinente para crear un recordatorio en la agenda.
+Hoy es {serverCurrentTime:dddd, dd 'de' MMMM 'de' yyyy} y la hora actual en el servidor es {serverCurrentTime:HH:mm:ss} (formato 24 horas). Utiliza esta fecha y hora de referencia para calcular cualquier fecha relativa o futuros eventos que se muestren en el volante/nota.
+
+Debes devolver ÚNICAMENTE un objeto JSON estructurado con el siguiente formato:
+{{
+  ""title"": ""Título resumido de la tarea en español"",
+  ""description"": ""Detalle o notas de la tarea extraído del texto de la imagen (ej: detalles del lugar, instrucciones adicionales)"",
+  ""dueDate"": ""Fecha y hora de vencimiento calculada en formato ISO 8601 YYYY-MM-DDTHH:mm:ssZ (si no se especifica hora, pon las 9:00 AM del día del evento)"",
+  ""category"": ""Personal"" | ""Trabajo"" | ""Salud"" | ""General""
+}}
+No agregues texto explicativo ni bloques de código markdown.
+";
+
+            var payload = new
+            {
+                contents = new[]
+                {
+                    new
+                    {
+                        parts = new object[]
+                        {
+                            new { text = "Extrae el recordatorio de esta imagen:" },
+                            new
+                            {
+                                inlineData = new
+                                {
+                                    mimeType = mimeType,
+                                    data = base64ImageBytes
+                                }
+                            }
+                        }
+                    }
+                },
+                systemInstruction = new
+                {
+                    parts = new[]
+                    {
+                        new { text = systemInstruction }
+                    }
+                },
+                generationConfig = new
+                {
+                    responseMimeType = "application/json"
+                }
+            };
+
+            var jsonPayload = JsonSerializer.Serialize(payload);
+            var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+            var response = await _httpClient.PostAsync(url, content);
+            response.EnsureSuccessStatusCode();
+
+            var responseBody = await response.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(responseBody);
+            
+            var text = doc.RootElement
+                .GetProperty("candidates")[0]
+                .GetProperty("content")
+                .GetProperty("parts")[0]
+                .GetProperty("text")
+                .GetString();
+
+            return text ?? "{}";
+        }
     }
 }

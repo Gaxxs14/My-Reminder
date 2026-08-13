@@ -8,6 +8,7 @@ import 'features/auth/presentation/login_screen.dart';
 import 'features/reminders/presentation/home_screen.dart';
 
 import 'core/services/notification_service.dart';
+import 'core/services/location_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,6 +37,9 @@ class _MyAppState extends ConsumerState<MyApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(locationServiceProvider).startTracking();
+    });
   }
 
   @override

@@ -10,6 +10,10 @@ import '../../../core/widgets/app_toast.dart';
 import '../../assistant/presentation/assistant_screen.dart';
 import '../../habits/presentation/habits_screen.dart';
 import '../../notes/presentation/notes_screen.dart';
+import 'dart:convert';
+import 'package:image_picker/image_picker.dart';
+import '../../../core/widgets/gaxxs_loader.dart';
+import '../data/reminder_model.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -49,6 +53,136 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     } finally {
       if (mounted) setState(() => _isSyncing = false);
     }
+  }
+
+  Future<void> _scanImageOcr(ImageSource source) async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: source, imageQuality: 70);
+
+    if (pickedFile == null) return;
+    if (!mounted) return;
+
+    // Show AI loading modal
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return const PopScope(
+          canPop: false,
+          child: AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GaxxsLoader(showBrandName: false, size: 48),
+                SizedBox(height: 16),
+                Text(
+                  'Gemini analizando imagen...',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'Extrayendo datos de la tarea...',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    try {
+      final bytes = await pickedFile.readAsBytes();
+      final base64String = base64Encode(bytes);
+      final mimeType = pickedFile.name.endsWith('.png') ? 'image/png' : 'image/jpeg';
+
+      final apiClient = ref.read(apiClientProvider);
+      final response = await apiClient.post('/api/assistant/scan', data: {
+        'imageBase64': base64String,
+        'mimeType': mimeType,
+      });
+
+      // Close loading dialog
+      if (mounted) Navigator.of(context).pop();
+
+      if (response.statusCode == 200) {
+        final newReminder = ReminderModel.fromJson(Map<String, dynamic>.from(response.data as Map));
+        
+        // Save locally immediately
+        await ref.read(localReminderRepositoryProvider).insertReminder(newReminder);
+        
+        // Refresh reminders provider state
+        await ref.read(remindersProvider.notifier).loadReminders();
+
+        if (mounted) {
+          AppToast.show(context, message: '¡Tarea creada con IA: "${newReminder.title}"!', type: AppToastType.success);
+        }
+      } else {
+        throw Exception('Servidor respondió con código ${response.statusCode}');
+      }
+    } catch (e) {
+      // Close loading dialog if still open
+      if (mounted) Navigator.of(context).pop();
+
+      if (mounted) {
+        AppToast.show(context, message: 'Error procesando OCR: $e', type: AppToastType.error);
+      }
+    }
+  }
+
+  void _showScanOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.surfaceDark : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 8),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Escanear con Inteligencia Artificial',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: const Icon(Icons.camera_alt, color: AppTheme.primaryDark),
+                  title: const Text('Tomar Foto con la Cámara'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _scanImageOcr(ImageSource.camera);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo_library, color: AppTheme.primaryDark),
+                  title: const Text('Elegir desde la Galería'),
+                  onTap: () {
+                    Navigator.of(context).pop();
+                    _scanImageOcr(ImageSource.gallery);
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 
   // Map category names to their colors
@@ -193,6 +327,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               icon: const Icon(Icons.sync_rounded),
                               onPressed: _syncData,
                             ),
+                      IconButton(
+                        icon: const Icon(Icons.camera_alt_outlined),
+                        onPressed: _showScanOptions,
+                      ),
                       IconButton(
                         icon: const Icon(Icons.mic_none_rounded),
                         onPressed: () {

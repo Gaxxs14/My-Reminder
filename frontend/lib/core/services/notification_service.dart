@@ -95,6 +95,42 @@ class NotificationService {
     );
   }
 
+  // Show an instant local notification
+  Future<void> showInstantNotification({
+    required String id,
+    required String title,
+    required String body,
+  }) async {
+    final int intId = id.hashCode;
+
+    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'my_reminder_geo_channel_id',
+      'Alertas Geográficas',
+      channelDescription: 'Canal de notificaciones para las alarmas por ubicación.',
+      importance: Importance.max,
+      priority: Priority.high,
+      playSound: true,
+    );
+
+    final DarwinNotificationDetails iosDetails = const DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    final NotificationDetails platformDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _notificationsPlugin.show(
+      intId,
+      title,
+      body,
+      platformDetails,
+    );
+  }
+
   // Cancel a scheduled alarm
   Future<void> cancelNotification(String id) async {
     await _notificationsPlugin.cancel(id.hashCode);

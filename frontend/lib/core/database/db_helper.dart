@@ -25,7 +25,7 @@ class DbHelper {
 
     _database = await openDatabase(
       path,
-      version: 3, // Bump to version 3 to include notes table
+      version: 4, // Bump to version 4 to include location fields on reminders
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -51,7 +51,11 @@ class DbHelper {
         due_date TEXT NOT NULL, -- ISO 8601 String
         status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'completed'
         is_synced INTEGER NOT NULL DEFAULT 0, -- 0 = Local pending, 1 = Synced with cloud
-        created_at TEXT NOT NULL
+        created_at TEXT NOT NULL,
+        latitude REAL,
+        longitude REAL,
+        location_name TEXT,
+        radius_in_meters REAL
       )
     ''');
 
@@ -121,6 +125,13 @@ class DbHelper {
           created_at TEXT NOT NULL
         )
       ''');
+    }
+    if (oldVersion < 4) {
+      // Add location fields to reminders
+      await db.execute('ALTER TABLE reminders ADD COLUMN latitude REAL');
+      await db.execute('ALTER TABLE reminders ADD COLUMN longitude REAL');
+      await db.execute('ALTER TABLE reminders ADD COLUMN location_name TEXT');
+      await db.execute('ALTER TABLE reminders ADD COLUMN radius_in_meters REAL');
     }
   }
 
