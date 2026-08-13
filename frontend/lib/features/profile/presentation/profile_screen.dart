@@ -7,6 +7,7 @@ import '../../../core/providers/global_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/gaxxs_loader.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -168,24 +169,72 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               onPressed: () async {
                 Navigator.of(dialogCtx).pop();
-                try {
-                  final apiClient = ref.read(apiClientProvider);
-                  await apiClient.delete('/api/auth/account');
-                } catch (_) {
-                  // Offline support
+
+                if (mounted) {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (ctx) => Dialog(
+                      backgroundColor: Colors.transparent,
+                      elevation: 0,
+                      child: Center(
+                        child: Card(
+                          color: AppTheme.surfaceDark,
+                          child: Padding(
+                            padding: const EdgeInsets.all(24.0),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: const [
+                                GaxxsLoader(showBrandName: false, size: 44),
+                                SizedBox(height: 16),
+                                Text(
+                                  'Eliminando cuenta en la nube...',
+                                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
                 }
 
-                // Clear all local SQLite cached data
-                await DbHelper().clearAllData();
+                try {
+                  final apiClient = ref.read(apiClientProvider);
+                  final response = await apiClient.delete('/api/auth/account');
 
-                // Clear all secure storage tokens & preferences
-                final storage = ref.read(secureStorageProvider);
-                await storage.clearAll();
+                  if (mounted && Navigator.of(context).canPop()) {
+                    Navigator.of(context).pop();
+                  }
 
-                // Instantly logout and redirect to Login
-                await ref.read(authStateProvider.notifier).logout();
-                if (mounted) {
-                  AppToast.show(context, message: 'Tu cuenta ha sido eliminada permanentemente.', type: AppToastType.warning);
+                  if (response.statusCode == 200 || response.statusCode == 204) {
+                    await DbHelper().clearAllData();
+                    final storage = ref.read(secureStorageProvider);
+                    await storage.clearAll();
+                    await ref.read(authStateProvider.notifier).logout();
+
+                    if (mounted) {
+                      AppToast.show(context, message: 'Tu cuenta ha sido eliminada permanentemente.', type: AppToastType.warning);
+                    }
+                  } else {
+                    if (mounted) {
+                      AppToast.show(context, message: 'No se pudo eliminar la cuenta. Intenta de nuevo.', type: AppToastType.error);
+                    }
+                  }
+                } catch (e) {
+                  if (mounted && Navigator.of(context).canPop()) {
+                    Navigator.of(context).pop();
+                  }
+
+                  await DbHelper().clearAllData();
+                  final storage = ref.read(secureStorageProvider);
+                  await storage.clearAll();
+                  await ref.read(authStateProvider.notifier).logout();
+
+                  if (mounted) {
+                    AppToast.show(context, message: 'Cuenta cerrada y datos borrados.', type: AppToastType.warning);
+                  }
                 }
               },
               child: const Text('Sí, Eliminar Cuenta'),
