@@ -209,4 +209,16 @@ class HabitsNotifier extends StateNotifier<List<HabitModel>> {
       'progress': xpInCurrentLevel / 100.0
     };
   }
+
+  Future<void> addPoints(int pts) async {
+    if (state.isNotEmpty) {
+      final firstHabit = state.first;
+      final updated = firstHabit.copyWith(points: firstHabit.points + pts);
+      await _repository.updateHabit(updated);
+      state = [
+        updated,
+        ...state.sublist(1),
+      ];
+    }
+  }
 }

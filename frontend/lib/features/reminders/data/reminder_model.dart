@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 class ReminderModel {
   final String id;
   final String title;
@@ -8,14 +10,20 @@ class ReminderModel {
   final bool isSynced;
   final DateTime createdAt;
 
-  // Optional Location fields for Geo-Reminders
+  // Geo-Location
   final double? latitude;
   final double? longitude;
   final String? locationName;
   final double? radiusInMeters;
 
-  // Optional Workspace field for shared collaboration spaces
+  // Workspace
   final String? workspaceId;
+
+  // Advanced Productivity fields
+  final String priority; // 'alta', 'media', 'baja'
+  final List<String> subtasks;
+  final double? estimatedCost;
+  final bool isAlarm;
 
   ReminderModel({
     required this.id,
@@ -31,9 +39,12 @@ class ReminderModel {
     this.locationName,
     this.radiusInMeters = 150.0,
     this.workspaceId,
+    this.priority = 'media',
+    this.subtasks = const [],
+    this.estimatedCost,
+    this.isAlarm = false,
   }) : createdAt = createdAt ?? DateTime.now();
 
-  // Convert to SQLite Map
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -49,11 +60,22 @@ class ReminderModel {
       'location_name': locationName,
       'radius_in_meters': radiusInMeters,
       'workspace_id': workspaceId,
+      'priority': priority,
+      'subtasks': jsonEncode(subtasks),
+      'estimated_cost': estimatedCost,
+      'is_alarm': isAlarm ? 1 : 0,
     };
   }
 
-  // Create from SQLite Map
   factory ReminderModel.fromMap(Map<String, dynamic> map) {
+    List<String> parsedSubtasks = [];
+    if (map['subtasks'] != null && (map['subtasks'] as String).isNotEmpty) {
+      try {
+        final List<dynamic> decoded = jsonDecode(map['subtasks'] as String);
+        parsedSubtasks = decoded.map((e) => e.toString()).toList();
+      } catch (_) {}
+    }
+
     return ReminderModel(
       id: map['id'] as String,
       title: map['title'] as String,
@@ -68,10 +90,13 @@ class ReminderModel {
       locationName: map['location_name'] as String?,
       radiusInMeters: map['radius_in_meters'] as double?,
       workspaceId: map['workspace_id'] as String?,
+      priority: map['priority'] as String? ?? 'media',
+      subtasks: parsedSubtasks,
+      estimatedCost: map['estimated_cost'] as double?,
+      isAlarm: (map['is_alarm'] as int? ?? 0) == 1,
     );
   }
 
-  // Convert to C# JSON
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -86,11 +111,21 @@ class ReminderModel {
       'locationName': locationName,
       'radiusInMeters': radiusInMeters,
       'workspaceId': workspaceId,
+      'priority': priority,
+      'subtasks': subtasks,
+      'estimatedCost': estimatedCost,
+      'isAlarm': isAlarm,
     };
   }
 
-  // Create from C# JSON
   factory ReminderModel.fromJson(Map<String, dynamic> json) {
+    List<String> parsedSubtasks = [];
+    if (json['subtasks'] != null) {
+      if (json['subtasks'] is List) {
+        parsedSubtasks = (json['subtasks'] as List).map((e) => e.toString()).toList();
+      }
+    }
+
     return ReminderModel(
       id: json['id'] as String,
       title: json['title'] as String,
@@ -98,13 +133,17 @@ class ReminderModel {
       category: json['category'] as String? ?? 'General',
       dueDate: DateTime.parse(json['dueDate'] as String),
       status: json['status'] as String? ?? 'pending',
-      isSynced: true, // If it comes from server, it is synced
+      isSynced: true,
       createdAt: DateTime.parse(json['createdAt'] as String),
       latitude: json['latitude'] != null ? (json['latitude'] as num).toDouble() : null,
       longitude: json['longitude'] != null ? (json['longitude'] as num).toDouble() : null,
       locationName: json['locationName'] as String?,
       radiusInMeters: json['radiusInMeters'] != null ? (json['radiusInMeters'] as num).toDouble() : null,
       workspaceId: json['workspaceId'] as String?,
+      priority: json['priority'] as String? ?? 'media',
+      subtasks: parsedSubtasks,
+      estimatedCost: json['estimatedCost'] != null ? (json['estimatedCost'] as num).toDouble() : null,
+      isAlarm: json['isAlarm'] as bool? ?? false,
     );
   }
 
@@ -122,6 +161,10 @@ class ReminderModel {
     String? locationName,
     double? radiusInMeters,
     String? workspaceId,
+    String? priority,
+    List<String>? subtasks,
+    double? estimatedCost,
+    bool? isAlarm,
   }) {
     return ReminderModel(
       id: id ?? this.id,
@@ -137,6 +180,10 @@ class ReminderModel {
       locationName: locationName ?? this.locationName,
       radiusInMeters: radiusInMeters ?? this.radiusInMeters,
       workspaceId: workspaceId ?? this.workspaceId,
+      priority: priority ?? this.priority,
+      subtasks: subtasks ?? this.subtasks,
+      estimatedCost: estimatedCost ?? this.estimatedCost,
+      isAlarm: isAlarm ?? this.isAlarm,
     );
   }
 }

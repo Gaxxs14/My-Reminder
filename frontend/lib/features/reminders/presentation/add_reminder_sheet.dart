@@ -21,9 +21,12 @@ class _AddReminderSheetState extends ConsumerState<AddReminderSheet> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
+  final _costController = TextEditingController();
 
   // Location fields
   bool _useLocation = false;
+  bool _isAlarm = false;
+  String _selectedPriority = 'media';
   final _locationNameController = TextEditingController();
   final _latitudeController = TextEditingController();
   final _longitudeController = TextEditingController();
@@ -45,6 +48,7 @@ class _AddReminderSheetState extends ConsumerState<AddReminderSheet> {
   void dispose() {
     _titleController.dispose();
     _descController.dispose();
+    _costController.dispose();
     _locationNameController.dispose();
     _latitudeController.dispose();
     _longitudeController.dispose();
@@ -134,7 +138,6 @@ class _AddReminderSheetState extends ConsumerState<AddReminderSheet> {
       return;
     }
 
-    // Generate a secure string UUID locally
     final String uuid = const Uuid().v4();
 
     final newReminder = ReminderModel(
@@ -152,6 +155,9 @@ class _AddReminderSheetState extends ConsumerState<AddReminderSheet> {
           : null,
       radiusInMeters: _useLocation ? (double.tryParse(_radiusController.text) ?? 150.0) : null,
       workspaceId: _selectedWorkspaceId,
+      priority: _selectedPriority,
+      estimatedCost: double.tryParse(_costController.text.trim()),
+      isAlarm: _isAlarm,
     );
 
     ref.read(remindersProvider.notifier).addReminder(newReminder);
@@ -182,7 +188,6 @@ class _AddReminderSheetState extends ConsumerState<AddReminderSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Pull Bar indicator
               Center(
                 child: Container(
                   width: 40,
@@ -195,7 +200,7 @@ class _AddReminderSheetState extends ConsumerState<AddReminderSheet> {
               ),
               const SizedBox(height: 16),
               Text(
-                'Nuevo Recordatorio',
+                'Nuevo Recordatorio Avanzado',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -217,6 +222,35 @@ class _AddReminderSheetState extends ConsumerState<AddReminderSheet> {
                 labelText: 'Descripción / Notas (Opcional)',
                 hintText: 'ej. Monto \$25 en la página de Fibra',
                 prefixIcon: Icons.description_outlined,
+              ),
+              const SizedBox(height: 16),
+              AppTextField(
+                controller: _costController,
+                labelText: 'Costo Estimado (\$) (Opcional)',
+                hintText: 'ej. 25.00',
+                prefixIcon: Icons.attach_money_rounded,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              ),
+              const SizedBox(height: 20),
+
+              // Priority Selector
+              Text(
+                'Nivel de Prioridad (Matriz Eisenhower)',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _buildPriorityChip('baja', 'Baja', Colors.blue, isDark),
+                  const SizedBox(width: 8),
+                  _buildPriorityChip('media', 'Media', Colors.orange, isDark),
+                  const SizedBox(width: 8),
+                  _buildPriorityChip('alta', 'Alta (Urgente)', Colors.redAccent, isDark),
+                ],
               ),
               const SizedBox(height: 20),
 
@@ -248,9 +282,18 @@ class _AddReminderSheetState extends ConsumerState<AddReminderSheet> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
+
+              SwitchListTile(
+                title: const Text('Modo Alarma Inteligente'),
+                subtitle: const Text('Sonar con alarma fuerte para eventos críticos'),
+                value: _isAlarm,
+                activeTrackColor: Colors.redAccent,
+                onChanged: (val) => setState(() => _isAlarm = val),
+              ),
 
               // Category Selector
+              const SizedBox(height: 12),
               Text(
                 'Categoría',
                 style: TextStyle(
@@ -402,7 +445,6 @@ class _AddReminderSheetState extends ConsumerState<AddReminderSheet> {
               ],
               const SizedBox(height: 28),
 
-              // Action buttons
               Row(
                 children: [
                   Expanded(
@@ -438,6 +480,29 @@ class _AddReminderSheetState extends ConsumerState<AddReminderSheet> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPriorityChip(String value, String label, Color color, bool isDark) {
+    final isSelected = _selectedPriority == value;
+    return FilterChip(
+      showCheckmark: false,
+      selected: isSelected,
+      label: Text(label),
+      selectedColor: color.withValues(alpha: 0.25),
+      backgroundColor: isDark ? AppTheme.surfaceDarkElevated : Colors.grey[200],
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: isSelected ? color : Colors.transparent),
+      ),
+      labelStyle: TextStyle(
+        fontSize: 12,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+        color: isSelected ? color : (isDark ? Colors.white70 : Colors.black87),
+      ),
+      onSelected: (selected) {
+        if (selected) setState(() => _selectedPriority = value);
+      },
     );
   }
 }

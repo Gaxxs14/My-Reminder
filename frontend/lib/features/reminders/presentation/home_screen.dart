@@ -12,6 +12,12 @@ import '../../habits/presentation/habits_screen.dart';
 import '../../notes/presentation/notes_screen.dart';
 import '../../workspaces/presentation/workspaces_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
+import '../../pomodoro/presentation/pomodoro_screen.dart';
+import '../../analytics/presentation/analytics_screen.dart';
+import '../../quests/presentation/quests_screen.dart';
+import '../../kanban/presentation/kanban_screen.dart';
+import '../../mood/presentation/mood_tracker_sheet.dart';
+import '../../search/presentation/global_search_sheet.dart';
 import '../../workspaces/presentation/workspaces_provider.dart';
 import '../../workspaces/data/workspace_model.dart';
 import 'dart:convert';
@@ -249,6 +255,46 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 24),
 
               ListTile(
+                leading: const Icon(Icons.timer_outlined, color: AppTheme.primaryDark),
+                title: const Text('Temporizador Pomodoro & Enfoque'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const PomodoroScreen()));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.analytics_outlined, color: AppTheme.accentTeal),
+                title: const Text('Dashboard & Analítica'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const AnalyticsScreen()));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.emoji_events_outlined, color: Colors.amber),
+                title: const Text('Misiones RPG & Insignias'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const QuestsScreen()));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.view_kanban_outlined, color: Colors.blueAccent),
+                title: const Text('Tablero Kanban'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).push(MaterialPageRoute(builder: (ctx) => const KanbanScreen()));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.mood_outlined, color: Colors.purpleAccent),
+                title: const Text('Registro de Ánimo (Mood Tracker)'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  showModalBottomSheet(context: context, isScrollControlled: true, builder: (ctx) => const MoodTrackerSheet());
+                },
+              ),
+              ListTile(
                 leading: Icon(
                   isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined,
                   color: AppTheme.primaryDark,
@@ -459,6 +505,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
                       ),
+                    IconButton(
+                      icon: const Icon(Icons.search_rounded, size: 22),
+                      onPressed: () {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          builder: (ctx) => const GlobalSearchSheet(),
+                        );
+                      },
+                      tooltip: 'Búsqueda Global',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    ),
                     IconButton(
                       icon: const Icon(Icons.camera_alt_outlined, size: 22),
                       onPressed: _showScanOptions,

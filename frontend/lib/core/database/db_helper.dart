@@ -8,7 +8,6 @@ class DbHelper {
 
   Database? _database;
 
-  // Get active database. Throws exception if not initialized.
   Database get database {
     if (_database == null) {
       throw StateError('La base de datos no ha sido inicializada. Llama a initDatabase() primero.');
@@ -16,7 +15,6 @@ class DbHelper {
     return _database!;
   }
 
-  // Initialize SQLite database
   Future<void> initDatabase() async {
     if (_database != null) return;
 
@@ -25,14 +23,13 @@ class DbHelper {
 
     _database = await openDatabase(
       path,
-      version: 5, // Bump to version 5 to include workspaces table
+      version: 6, // Bump to version 6 for advanced productivity features
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    // Users table
     await db.execute('''
       CREATE TABLE users (
         id TEXT PRIMARY KEY,
@@ -41,50 +38,50 @@ class DbHelper {
       )
     ''');
 
-    // Reminders table
     await db.execute('''
       CREATE TABLE reminders (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
         description TEXT,
         category TEXT NOT NULL DEFAULT 'General',
-        due_date TEXT NOT NULL, -- ISO 8601 String
-        status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'completed'
-        is_synced INTEGER NOT NULL DEFAULT 0, -- 0 = Local pending, 1 = Synced with cloud
+        due_date TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        is_synced INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
         latitude REAL,
         longitude REAL,
         location_name TEXT,
         radius_in_meters REAL,
-        workspace_id TEXT
+        workspace_id TEXT,
+        priority TEXT NOT NULL DEFAULT 'media',
+        subtasks TEXT,
+        estimated_cost REAL,
+        is_alarm INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
-    // Categories table (custom workspaces / spaces)
     await db.execute('''
       CREATE TABLE categories (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
-        color TEXT NOT NULL, -- Hex code string, e.g. '#38BDF8'
-        icon TEXT NOT NULL -- Icon string identifier, e.g. 'work'
+        color TEXT NOT NULL,
+        icon TEXT NOT NULL
       )
     ''');
 
-    // Habits table
     await db.execute('''
       CREATE TABLE habits (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         frequency TEXT NOT NULL DEFAULT 'daily',
         streak INTEGER NOT NULL DEFAULT 0,
-        last_completed TEXT, -- ISO 8601 String
+        last_completed TEXT,
         points INTEGER NOT NULL DEFAULT 0,
         is_synced INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL
       )
     ''');
 
-    // Notes table
     await db.execute('''
       CREATE TABLE notes (
         id TEXT PRIMARY KEY,
@@ -95,7 +92,6 @@ class DbHelper {
       )
     ''');
 
-    // Workspaces table
     await db.execute('''
       CREATE TABLE workspaces (
         id TEXT PRIMARY KEY,
@@ -105,7 +101,33 @@ class DbHelper {
       )
     ''');
 
-    // Insert default categories
+    await db.execute('''
+      CREATE TABLE mood_logs (
+        id TEXT PRIMARY KEY,
+        mood TEXT NOT NULL,
+        note TEXT,
+        date TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE pomodoro_sessions (
+        id TEXT PRIMARY KEY,
+        duration_minutes INTEGER NOT NULL,
+        completed_at TEXT NOT NULL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE quests (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        reward_xp INTEGER NOT NULL,
+        is_completed INTEGER NOT NULL DEFAULT 0,
+        date TEXT NOT NULL
+      )
+    ''');
+
     await db.rawInsert("INSERT INTO categories (id, name, color, icon) VALUES ('cat-1', 'Trabajo', '#38BDF8', 'work')");
     await db.rawInsert("INSERT INTO categories (id, name, color, icon) VALUES ('cat-2', 'Personal', '#0D9488', 'person')");
     await db.rawInsert("INSERT INTO categories (id, name, color, icon) VALUES ('cat-3', 'Salud', '#EF4444', 'favorite')");
@@ -154,9 +176,39 @@ class DbHelper {
         )
       ''');
     }
+    if (oldVersion < 6) {
+      await db.execute("ALTER TABLE reminders ADD COLUMN priority TEXT NOT NULL DEFAULT 'media'");
+      await db.execute("ALTER TABLE reminders ADD COLUMN subtasks TEXT");
+      await db.execute("ALTER TABLE reminders ADD COLUMN estimated_cost REAL");
+      await db.execute("ALTER TABLE reminders ADD COLUMN is_alarm INTEGER NOT NULL DEFAULT 0");
+
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS mood_logs (
+          id TEXT PRIMARY KEY,
+          mood TEXT NOT NULL,
+          note TEXT,
+          date TEXT NOT NULL
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS pomodoro_sessions (
+          id TEXT PRIMARY KEY,
+          duration_minutes INTEGER NOT NULL,
+          completed_at TEXT NOT NULL
+        )
+      ''');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS quests (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          reward_xp INTEGER NOT NULL,
+          is_completed INTEGER NOT NULL DEFAULT 0,
+          date TEXT NOT NULL
+        )
+      ''');
+    }
   }
 
-  // Clear all local tables (used on logout/reset)
   Future<void> clearAllData() async {
     if (_database == null) return;
     await _database!.delete('reminders');
@@ -165,8 +217,10 @@ class DbHelper {
     await _database!.delete('habits');
     await _database!.delete('notes');
     await _database!.delete('workspaces');
+    await _database!.delete('mood_logs');
+    await _database!.delete('pomodoro_sessions');
+    await _database!.delete('quests');
     
-    // Re-insert defaults
     await _database!.rawInsert("INSERT INTO categories (id, name, color, icon) VALUES ('cat-1', 'Trabajo', '#38BDF8', 'work')");
     await _database!.rawInsert("INSERT INTO categories (id, name, color, icon) VALUES ('cat-2', 'Personal', '#0D9488', 'person')");
     await _database!.rawInsert("INSERT INTO categories (id, name, color, icon) VALUES ('cat-3', 'Salud', '#EF4444', 'favorite')");
