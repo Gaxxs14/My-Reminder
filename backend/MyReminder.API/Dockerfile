@@ -17,6 +17,12 @@ COPY --from=build /app/out .
 
 # Expose port (Render/Koyeb will route traffic to port 8080 or the PORT environment variable)
 ENV ASPNETCORE_URLS=http://+:8080
+ENV ASPNETCORE_ENVIRONMENT=Production
+
+# Fix: Render's free-tier containers have a low inotify limit (128 instances).
+# Using polling avoids the "inotify instances has been reached" crash on startup.
+ENV DOTNET_USE_POLLING_FILE_WATCHER=1
+
 EXPOSE 8080
 
 ENTRYPOINT ["dotnet", "MyReminder.API.dll"]
