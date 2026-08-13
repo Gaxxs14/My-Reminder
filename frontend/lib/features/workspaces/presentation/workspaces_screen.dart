@@ -48,8 +48,11 @@ class _WorkspacesScreenState extends ConsumerState<WorkspacesScreen> {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         return AlertDialog(
           backgroundColor: isDark ? AppTheme.surfaceDark : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Nuevo Espacio Colaborativo'),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: Text(
+            'Nuevo Espacio Colaborativo',
+            style: TextStyle(color: isDark ? Colors.white : AppTheme.textPrimaryLight, fontWeight: FontWeight.bold),
+          ),
           content: AppTextField(
             controller: _nameController,
             labelText: 'Nombre del Espacio',
@@ -68,7 +71,7 @@ class _WorkspacesScreenState extends ConsumerState<WorkspacesScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryDark,
                 foregroundColor: Colors.black,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
               onPressed: () async {
                 final name = _nameController.text.trim();
@@ -109,7 +112,7 @@ class _WorkspacesScreenState extends ConsumerState<WorkspacesScreen> {
               ),
               decoration: BoxDecoration(
                 color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
               ),
               child: SingleChildScrollView(
                 child: Column(
@@ -145,9 +148,9 @@ class _WorkspacesScreenState extends ConsumerState<WorkspacesScreen> {
                             backgroundColor: AppTheme.primaryDark.withValues(alpha: 0.2),
                             foregroundColor: AppTheme.primaryDark,
                             elevation: 0,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
-                          icon: const Icon(Icons.sync, size: 16),
+                          icon: const Icon(Icons.sync_rounded, size: 16),
                           label: const Text('Sync', style: TextStyle(fontSize: 12)),
                           onPressed: () async {
                             await notifier.syncWorkspaceReminders(workspace.id);
@@ -162,7 +165,7 @@ class _WorkspacesScreenState extends ConsumerState<WorkspacesScreen> {
 
                     // Members List Section
                     Text(
-                      'Miembros del Espacio',
+                      'Miembros del Equipo',
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -251,7 +254,7 @@ class _WorkspacesScreenState extends ConsumerState<WorkspacesScreen> {
                               if (res['success'] == true) {
                                 AppToast.show(context, message: res['message'] as String, type: AppToastType.success);
                                 _inviteController.clear();
-                                setModalState(() {}); // Force reload the future builder
+                                setModalState(() {});
                               } else {
                                 AppToast.show(context, message: res['message'] as String, type: AppToastType.error);
                               }
@@ -279,7 +282,7 @@ class _WorkspacesScreenState extends ConsumerState<WorkspacesScreen> {
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+          padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 16.0, bottom: 90.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -302,7 +305,7 @@ class _WorkspacesScreenState extends ConsumerState<WorkspacesScreen> {
                       Text(
                         'Colabora en tiempo real con tu equipo',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 13,
                           color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
                         ),
                       ),
@@ -335,7 +338,7 @@ class _WorkspacesScreenState extends ConsumerState<WorkspacesScreen> {
                             Icon(
                               Icons.group_work_outlined,
                               size: 64,
-                              color: isDark ? Colors.white24 : Colors.grey[300],
+                              color: isDark ? Colors.white12 : Colors.grey[300],
                             ),
                             const SizedBox(height: 12),
                             Text(
@@ -362,20 +365,20 @@ class _WorkspacesScreenState extends ConsumerState<WorkspacesScreen> {
                         itemBuilder: (context, index) {
                           final ws = workspaces[index];
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 12.0),
-                            child: Card(
-                              elevation: isDark ? 0 : 2,
-                              color: isDark ? AppTheme.surfaceDark : Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                side: BorderSide(
-                                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey[200]!,
+                            padding: const EdgeInsets.only(bottom: 10.0),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: isDark ? AppTheme.surfaceDark : Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: isDark ? AppTheme.glassBorder : Colors.grey[200]!,
+                                  width: 1,
                                 ),
                               ),
                               child: ListTile(
                                 leading: CircleAvatar(
                                   backgroundColor: AppTheme.primaryDark.withValues(alpha: 0.15),
-                                  child: const Icon(Icons.groups, color: AppTheme.primaryDark),
+                                  child: const Icon(Icons.groups_rounded, color: AppTheme.primaryDark),
                                 ),
                                 title: Text(
                                   ws.name,
@@ -389,7 +392,7 @@ class _WorkspacesScreenState extends ConsumerState<WorkspacesScreen> {
                                   'Espacio Compartido',
                                   style: TextStyle(fontSize: 12),
                                 ),
-                                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                                 onTap: () => _showWorkspaceDetails(ws),
                               ),
                             ),
@@ -401,12 +404,15 @@ class _WorkspacesScreenState extends ConsumerState<WorkspacesScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppTheme.primaryDark,
-        foregroundColor: Colors.black,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        onPressed: _showCreateDialog,
-        child: const Icon(Icons.add, size: 28),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 72.0),
+        child: FloatingActionButton(
+          backgroundColor: AppTheme.primaryDark,
+          foregroundColor: Colors.black,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          onPressed: _showCreateDialog,
+          child: const Icon(Icons.add_rounded, size: 28),
+        ),
       ),
     );
   }

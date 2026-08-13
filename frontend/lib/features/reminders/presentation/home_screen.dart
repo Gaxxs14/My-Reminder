@@ -26,75 +26,77 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
+  int _currentIndex = 0;
   DateTime _selectedDate = DateTime.now();
   String _selectedCategory = 'Todas';
   bool _isSyncing = false;
-  int _currentIndex = 0;
+  final ImagePicker _picker = ImagePicker();
 
-  final List<String> _categories = ['Todas', 'Personal', 'Trabajo', 'Salud', 'General'];
+  final List<Map<String, dynamic>> _categories = [
+    {'name': 'Todas', 'color': AppTheme.primaryDark},
+    {'name': 'Trabajo', 'color': Color(0xFF38BDF8)},
+    {'name': 'Personal', 'color': Color(0xFF2DD4BF)},
+    {'name': 'Salud', 'color': Color(0xFFF43F5E)},
+  ];
 
-  @override
-  void initState() {
-    super.initState();
-    // Auto-sync on open
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _syncData(showToast: false);
-    });
-  }
-
-  Future<void> _syncData({bool showToast = true}) async {
+  Future<void> _syncData() async {
     setState(() => _isSyncing = true);
     try {
-      await ref.read(remindersProvider.notifier).syncWithCloud();
-      if (mounted && showToast) {
+      await ref.read(syncServiceProvider).syncReminders();
+      await ref.read(remindersProvider.notifier).loadReminders();
+      if (mounted) {
         AppToast.show(context, message: '¡Datos sincronizados con la nube!', type: AppToastType.success);
       }
     } catch (e) {
-      if (mounted && showToast) {
-        AppToast.show(context, message: 'Error de sincronización: $e', type: AppToastType.error);
+      if (mounted) {
+        AppToast.show(context, message: 'Error al sincronizar: $e', type: AppToastType.error);
       }
     } finally {
       if (mounted) setState(() => _isSyncing = false);
     }
   }
 
-  Future<void> _scanImageOcr(ImageSource source) async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: source, imageQuality: 70);
+  Future<void> _pickAndProcessImage(ImageSource source) async {
+    try {
+      final pickedFile = await _picker.pickImage(
+        source: source,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
 
-    if (pickedFile == null) return;
-    if (!mounted) return;
+      if (pickedFile == null) return;
 
-    // Show AI loading modal
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) {
-        return const PopScope(
-          canPop: false,
-          child: AlertDialog(
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                GaxxsLoader(showBrandName: false, size: 48),
-                SizedBox(height: 16),
-                Text(
-                  'Gemini analizando imagen...',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Dialog(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            child: Center(
+              child: Card(
+                color: AppTheme.surfaceDark,
+                child: Padding(
+                  padding: EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GaxxsLoader(showBrandName: false, size: 44),
+                      SizedBox(height: 16),
+                      Text(
+                        'Escaneando imagen con IA...',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    ],
+                  ),
                 ),
-                SizedBox(height: 4),
-                Text(
-                  'Extrayendo datos de la tarea...',
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-              ],
+              ),
             ),
           ),
         );
-      },
-    );
+      }
 
-    try {
       final bytes = await pickedFile.readAsBytes();
       final base64String = base64Encode(bytes);
       final mimeType = pickedFile.name.endsWith('.png') ? 'image/png' : 'image/jpeg';
@@ -105,28 +107,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         'mimeType': mimeType,
       });
 
-      // Close loading dialog
       if (mounted) Navigator.of(context).pop();
 
       if (response.statusCode == 200) {
         final newReminder = ReminderModel.fromJson(Map<String, dynamic>.from(response.data as Map));
-        
-        // Save locally immediately
         await ref.read(localReminderRepositoryProvider).insertReminder(newReminder);
-        
-        // Refresh reminders provider state
         await ref.read(remindersProvider.notifier).loadReminders();
 
         if (mounted) {
           AppToast.show(context, message: '¡Tarea creada con IA: "${newReminder.title}"!', type: AppToastType.success);
         }
-      } else {
-        throw Exception('Servidor respondió con código ${response.statusCode}');
       }
     } catch (e) {
-      // Close loading dialog if still open
       if (mounted) Navigator.of(context).pop();
-
       if (mounted) {
         AppToast.show(context, message: 'Error procesando OCR: $e', type: AppToastType.error);
       }
@@ -136,69 +129,73 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void _showScanOptions() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         return Container(
-          decoration: BoxDecoration(
-            color: isDark ? AppTheme.surfaceDark : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 8),
-                Container(
-                  width: 40,
-                  height: 4,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Escáner Inteligente Multimodal',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                ),
+              ),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
+                    color: AppTheme.primaryDark.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
                   ),
+                  child: const Icon(Icons.camera_alt_rounded, color: AppTheme.primaryDark),
                 ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Escanear con Inteligencia Artificial',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                title: const Text('Tomar Foto con la Cámara'),
+                subtitle: const Text('Fotografía una nota, volante o letrero'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _pickAndProcessImage(ImageSource.camera);
+                },
+              ),
+              const SizedBox(height: 10),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentTeal.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.photo_library_rounded, color: AppTheme.accentTeal),
                 ),
-                const SizedBox(height: 12),
-                ListTile(
-                  leading: const Icon(Icons.camera_alt, color: AppTheme.primaryDark),
-                  title: const Text('Tomar Foto con la Cámara'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    _scanImageOcr(ImageSource.camera);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.photo_library, color: AppTheme.primaryDark),
-                  title: const Text('Elegir desde la Galería'),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    _scanImageOcr(ImageSource.gallery);
-                  },
-                ),
-                const SizedBox(height: 12),
-              ],
-            ),
+                title: const Text('Elegir de la Galería'),
+                subtitle: const Text('Selecciona una captura o imagen existente'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _pickAndProcessImage(ImageSource.gallery);
+                },
+              ),
+            ],
           ),
         );
       },
     );
   }
 
-  // Map category names to their colors
-  Color _getCategoryColor(String category) {
-    switch (category) {
-      case 'Personal':
-        return const Color(0xFF0D9488);
+  Color _getCategoryColor(String catName) {
+    switch (catName) {
       case 'Trabajo':
         return const Color(0xFF38BDF8);
+      case 'Personal':
+        return const Color(0xFF2DD4BF);
       case 'Salud':
-        return const Color(0xFFEF4444);
+        return const Color(0xFFF43F5E);
       default:
-        return Colors.blueGrey;
+        return AppTheme.primaryDark;
     }
   }
 
@@ -208,14 +205,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final usernameAsync = ref.watch(usernameProvider);
     final reminders = ref.watch(remindersProvider);
 
-    // Filter reminders by selected date and selected category
     final filteredReminders = reminders.where((r) {
       final isSameDay = r.dueDate.year == _selectedDate.year &&
           r.dueDate.month == _selectedDate.month &&
           r.dueDate.day == _selectedDate.day;
-
       final matchesCategory = _selectedCategory == 'Todas' || r.category == _selectedCategory;
-
       return isSameDay && matchesCategory;
     }).toList();
 
@@ -227,55 +221,124 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ];
 
     return Scaffold(
-      body: screens[_currentIndex],
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        selectedItemColor: AppTheme.primaryDark,
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        onTap: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_month_outlined),
-            activeIcon: Icon(Icons.calendar_month),
-            label: 'Agenda',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.spa_outlined),
-            activeIcon: Icon(Icons.spa),
-            label: 'Hábitos',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.article_outlined),
-            activeIcon: Icon(Icons.article),
-            label: 'Notas',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.groups_outlined),
-            activeIcon: Icon(Icons.groups),
-            label: 'Compartido',
+      body: Stack(
+        children: [
+          screens[_currentIndex],
+          
+          // Floating Glassmorphism Navigation Bar
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: 16,
+            child: Container(
+              height: 64,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: isDark
+                    ? AppTheme.surfaceDark.withValues(alpha: 0.92)
+                    : Colors.white.withValues(alpha: 0.92),
+                borderRadius: BorderRadius.circular(32),
+                border: Border.all(
+                  color: isDark ? AppTheme.glassBorder : Colors.grey[200]!,
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.08),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildNavItem(0, Icons.calendar_today_rounded, Icons.calendar_month_rounded, 'Agenda', isDark),
+                  _buildNavItem(1, Icons.spa_outlined, Icons.spa_rounded, 'Hábitos', isDark),
+                  _buildNavItem(2, Icons.article_outlined, Icons.article_rounded, 'Notas', isDark),
+                  _buildNavItem(3, Icons.groups_outlined, Icons.groups_rounded, 'Equipo', isDark),
+                ],
+              ),
+            ),
           ),
         ],
       ),
       floatingActionButton: _currentIndex == 0
-          ? FloatingActionButton(
-              backgroundColor: AppTheme.primaryDark,
-              foregroundColor: Colors.black,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              onPressed: () {
-                showModalBottomSheet(
-                  context: context,
-                  isScrollControlled: true,
-                  builder: (context) => const AddReminderSheet(),
-                );
-              },
-              child: const Icon(Icons.add, size: 28),
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 72.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF38BDF8), Color(0xFF2DD4BF)],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primaryDark.withValues(alpha: 0.4),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
+                ),
+                child: FloatingActionButton(
+                  backgroundColor: Colors.transparent,
+                  foregroundColor: Colors.black,
+                  elevation: 0,
+                  onPressed: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      builder: (context) => const AddReminderSheet(),
+                    );
+                  },
+                  child: const Icon(Icons.add_rounded, size: 30),
+                ),
+              ),
             )
           : null,
+    );
+  }
+
+  Widget _buildNavItem(int index, IconData icon, IconData activeIcon, String label, bool isDark) {
+    final isSelected = _currentIndex == index;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _currentIndex = index;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppTheme.primaryDark.withValues(alpha: 0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              isSelected ? activeIcon : icon,
+              size: 22,
+              color: isSelected
+                  ? AppTheme.primaryDark
+                  : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primaryDark,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -286,385 +349,431 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     AsyncValue<String> usernameAsync,
   ) {
     return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. HEADER ROW (Hola user + toggle theme + logout)
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      usernameAsync.when(
-                        data: (username) => Text(
-                          '¡Hola, $username!',
+      child: Padding(
+        padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 16.0, bottom: 90.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. HEADER ROW
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 22,
+                      backgroundColor: AppTheme.primaryDark.withValues(alpha: 0.2),
+                      child: Text(
+                        usernameAsync.valueOrNull?.substring(0, 1).toUpperCase() ?? 'U',
+                        style: const TextStyle(
+                          color: AppTheme.primaryDark,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        usernameAsync.when(
+                          data: (username) => Text(
+                            '¡Hola, $username!',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                            ),
+                          ),
+                          loading: () => const Text('Cargando...'),
+                          error: (err, stack) => const Text('¡Hola!'),
+                        ),
+                        Text(
+                          'Tus compromisos de hoy',
                           style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                            fontSize: 12,
+                            color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
                           ),
                         ),
-                        loading: () => const Text('Cargando...'),
-                        error: (err, stack) => const Text('¡Hola!'),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Organiza tus compromisos de hoy',
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      _isSyncing
-                          ? const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 12.0),
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppTheme.primaryDark,
-                                ),
-                              ),
-                            )
-                          : IconButton(
-                              icon: const Icon(Icons.sync_rounded),
-                              onPressed: _syncData,
-                            ),
-                      IconButton(
-                        icon: const Icon(Icons.camera_alt_outlined),
-                        onPressed: _showScanOptions,
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.mic_none_rounded),
-                        onPressed: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (context) => const AssistantScreen()),
-                          );
-                        },
-                      ),
-                      IconButton(
-                        icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
-                        onPressed: () => ref.read(appThemeModeProvider.notifier).toggleTheme(),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.logout_rounded),
-                        onPressed: () async {
-                          await ref.read(authStateProvider.notifier).logout();
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
-
-              // 2. CALENDAR STRIP (Horizontal selector for next 7 days)
-              Text(
-                'Calendario',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                      ],
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height: 80,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: 7,
-                  itemBuilder: (context, index) {
-                    final day = DateTime.now().add(Duration(days: index));
-                    final isSelected = day.year == _selectedDate.year &&
-                        day.month == _selectedDate.month &&
-                        day.day == _selectedDate.day;
+                Row(
+                  children: [
+                    _isSyncing
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8.0),
+                            child: SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryDark),
+                            ),
+                          )
+                        : IconButton(
+                            icon: const Icon(Icons.sync_rounded),
+                            onPressed: _syncData,
+                            tooltip: 'Sincronizar',
+                          ),
+                    IconButton(
+                      icon: const Icon(Icons.camera_alt_outlined),
+                      onPressed: _showScanOptions,
+                      tooltip: 'Escanear OCR',
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.mic_none_rounded),
+                      onPressed: () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(builder: (context) => const AssistantScreen()),
+                        );
+                      },
+                      tooltip: 'Asistente IA',
+                    ),
+                    IconButton(
+                      icon: Icon(isDark ? Icons.light_mode_outlined : Icons.dark_mode_outlined),
+                      onPressed: () => ref.read(appThemeModeProvider.notifier).toggleTheme(),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+                      onPressed: () async {
+                        await ref.read(authStateProvider.notifier).logout();
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
 
-                    final dayName = DateFormat('EEE', 'es_US').format(day).toUpperCase();
-                    final dayNumber = DateFormat('d').format(day);
+            // 2. CALENDAR STRIP (Horizontal Date Picker)
+            SizedBox(
+              height: 76,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: 14,
+                itemBuilder: (context, index) {
+                  final day = DateTime.now().add(Duration(days: index));
+                  final isSelected = day.year == _selectedDate.year &&
+                      day.month == _selectedDate.month &&
+                      day.day == _selectedDate.day;
 
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 12.0),
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedDate = day;
-                          });
-                        },
-                        child: Container(
-                          width: 58,
-                          decoration: BoxDecoration(
+                  final dayName = DateFormat('EEE', 'es_US').format(day).toUpperCase();
+                  final dayNumber = DateFormat('d').format(day);
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 10.0),
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedDate = day;
+                        });
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 56,
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppTheme.primaryDark
+                              : (isDark ? AppTheme.surfaceDark : Colors.white),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
                             color: isSelected
                                 ? AppTheme.primaryDark
-                                : (isDark ? AppTheme.surfaceDark : Colors.white),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppTheme.primaryDark
-                                  : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.grey[200]!),
-                            ),
+                                : (isDark ? AppTheme.glassBorder : Colors.grey[200]!),
+                            width: 1.5,
                           ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                dayName,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: isSelected
-                                      ? Colors.black
-                                      : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                dayNumber,
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: isSelected
-                                      ? Colors.black
-                                      : (isDark ? Colors.white : AppTheme.textPrimaryLight),
-                                ),
-                              ),
-                            ],
-                          ),
+                          boxShadow: isSelected
+                              ? [
+                                  BoxShadow(
+                                    color: AppTheme.primaryDark.withValues(alpha: 0.35),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ]
+                              : [],
                         ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // 3. CATEGORY CHIPS
-              SizedBox(
-                height: 38,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _categories.length,
-                  itemBuilder: (context, index) {
-                    final catName = _categories[index];
-                    final isSelected = _selectedCategory == catName;
-
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: ChoiceChip(
-                        label: Text(catName),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          if (selected) {
-                            setState(() {
-                              _selectedCategory = catName;
-                            });
-                          }
-                        },
-                        selectedColor: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
-                        labelStyle: TextStyle(
-                          color: isSelected
-                              ? (isDark ? Colors.black : Colors.white)
-                              : (isDark ? Colors.white70 : Colors.black87),
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 13,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // 4. LIST OF REMINDERS
-              Expanded(
-                child: filteredReminders.isEmpty
-                    ? Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              Icons.task_alt_outlined,
-                              size: 64,
-                              color: isDark ? Colors.white24 : Colors.grey[300],
-                            ),
-                            const SizedBox(height: 12),
                             Text(
-                              'No tienes compromisos agendados',
+                              dayName,
                               style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: isDark ? Colors.white54 : Colors.grey[600],
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: isSelected
+                                    ? Colors.black
+                                    : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Usa el botón "+" para programar uno nuevo.',
+                              dayNumber,
                               style: TextStyle(
-                                fontSize: 12,
-                                color: isDark ? Colors.white30 : Colors.grey[400],
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: isSelected
+                                    ? Colors.black
+                                    : (isDark ? Colors.white : AppTheme.textPrimaryLight),
                               ),
                             ),
                           ],
                         ),
-                      )
-                    : ListView.builder(
-                        itemCount: filteredReminders.length,
-                        itemBuilder: (context, index) {
-                          final reminder = filteredReminders[index];
-                          final isCompleted = reminder.status == 'completed';
-                          final Color catColor = _getCategoryColor(reminder.category);
-                          final workspaces = ref.watch(workspacesProvider);
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 20),
 
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12.0),
-                            child: Card(
-                              elevation: isDark ? 0 : 2,
+            // 3. CATEGORY CHIPS
+            SizedBox(
+              height: 38,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: _categories.length,
+                itemBuilder: (context, index) {
+                  final cat = _categories[index];
+                  final isSelected = _selectedCategory == cat['name'];
+                  final catColor = cat['color'] as Color;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8.0),
+                    child: ChoiceChip(
+                      showCheckmark: false,
+                      label: Text(cat['name'] as String),
+                      selected: isSelected,
+                      selectedColor: catColor,
+                      backgroundColor: isDark ? AppTheme.surfaceDark : Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        side: BorderSide(
+                          color: isSelected ? catColor : (isDark ? AppTheme.glassBorder : Colors.grey[300]!),
+                        ),
+                      ),
+                      onSelected: (selected) {
+                        if (selected) {
+                          setState(() {
+                            _selectedCategory = cat['name'] as String;
+                          });
+                        }
+                      },
+                      labelStyle: TextStyle(
+                        fontSize: 12,
+                        color: isSelected
+                            ? Colors.black
+                            : (isDark ? Colors.white70 : Colors.black87),
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 4. REMINDERS LIST
+            Expanded(
+              child: filteredReminders.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.task_alt_rounded,
+                            size: 64,
+                            color: isDark ? Colors.white12 : Colors.grey[300],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No tienes tareas agendadas',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white54 : Colors.grey[600],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Toca el botón "+" para agregar una.',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDark ? Colors.white30 : Colors.grey[400],
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: filteredReminders.length,
+                      itemBuilder: (context, index) {
+                        final reminder = filteredReminders[index];
+                        final isCompleted = reminder.status == 'completed';
+                        final Color catColor = _getCategoryColor(reminder.category);
+                        final workspaces = ref.watch(workspacesProvider);
+
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 10.0),
+                          child: Container(
+                            decoration: BoxDecoration(
                               color: isDark ? AppTheme.surfaceDark : Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                side: BorderSide(
-                                  color: isDark
-                                      ? Colors.white.withValues(alpha: 0.05)
-                                      : Colors.grey[200]!,
-                                ),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isDark ? AppTheme.glassBorder : Colors.grey[200]!,
+                                width: 1,
                               ),
-                              child: ListTile(
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 6,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
                                 ),
-                                leading: Checkbox(
+                              ],
+                            ),
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              leading: Transform.scale(
+                                scale: 1.1,
+                                child: Checkbox(
                                   value: isCompleted,
                                   activeColor: AppTheme.primaryDark,
+                                  checkColor: Colors.black,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                   onChanged: (val) {
                                     ref.read(remindersProvider.notifier).toggleReminderStatus(reminder.id);
                                   },
                                 ),
-                                title: Text(
-                                  reminder.title,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    decoration: isCompleted ? TextDecoration.lineThrough : null,
-                                    color: isCompleted
-                                        ? Colors.grey
-                                        : (isDark ? Colors.white : AppTheme.textPrimaryLight),
-                                  ),
+                              ),
+                              title: Text(
+                                reminder.title,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  decoration: isCompleted ? TextDecoration.lineThrough : null,
+                                  color: isCompleted
+                                      ? Colors.grey
+                                      : (isDark ? Colors.white : AppTheme.textPrimaryLight),
                                 ),
-                                subtitle: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (reminder.description != null) ...[
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        reminder.description!,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: isCompleted
-                                              ? Colors.grey[600]
-                                              : (isDark ? Colors.white70 : Colors.black54),
+                              ),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (reminder.description != null) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      reminder.description!,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: isCompleted
+                                            ? Colors.grey[600]
+                                            : (isDark ? Colors.white70 : Colors.black54),
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 4,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: catColor.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: catColor.withValues(alpha: 0.5), width: 0.8),
+                                        ),
+                                        child: Text(
+                                          reminder.category,
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: catColor,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
                                       ),
-                                    ],
-                                    const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        // Category Badge
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 2,
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.access_time_rounded,
+                                            size: 13,
+                                            color: isDark ? Colors.white54 : Colors.black45,
                                           ),
-                                          decoration: BoxDecoration(
-                                            color: catColor.withValues(alpha: 0.15),
-                                            borderRadius: BorderRadius.circular(6),
-                                            border: Border.all(color: catColor, width: 0.8),
-                                          ),
-                                          child: Text(
-                                            reminder.category,
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            DateFormat('hh:mm a').format(reminder.dueDate),
                                             style: TextStyle(
-                                              fontSize: 10,
-                                              color: catColor,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        // Time tag
-                                        Icon(
-                                          Icons.access_time_rounded,
-                                          size: 14,
-                                          color: isDark ? Colors.white54 : Colors.black45,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          DateFormat('hh:mm a').format(reminder.dueDate),
-                                          style: TextStyle(
-                                            fontSize: 11,
-                                            color: isDark ? Colors.white54 : Colors.black54,
-                                          ),
-                                        ),
-                                        if (reminder.workspaceId != null) ...[
-                                          const SizedBox(width: 12),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 2,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: AppTheme.primaryDark.withValues(alpha: 0.15),
-                                              borderRadius: BorderRadius.circular(6),
-                                              border: Border.all(color: AppTheme.primaryDark, width: 0.8),
-                                            ),
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Icon(Icons.groups, size: 10, color: AppTheme.primaryDark),
-                                                const SizedBox(width: 4),
-                                                Text(
-                                                  workspaces.firstWhere(
-                                                    (w) => w.id == reminder.workspaceId,
-                                                    orElse: () => WorkspaceModel(id: '', name: 'Colaborativo', ownerId: ''),
-                                                  ).name,
-                                                  style: const TextStyle(
-                                                    fontSize: 10,
-                                                    color: AppTheme.primaryDark,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ],
+                                              fontSize: 11,
+                                              color: isDark ? Colors.white54 : Colors.black54,
                                             ),
                                           ),
                                         ],
+                                      ),
+                                      if (reminder.locationName != null) ...[
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.location_on, size: 13, color: AppTheme.accentTeal),
+                                            const SizedBox(width: 2),
+                                            Text(
+                                              reminder.locationName!,
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                color: AppTheme.accentTeal,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ],
-                                    ),
-                                  ],
-                                ),
-                                trailing: IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline,
-                                    color: Colors.redAccent,
+                                      if (reminder.workspaceId != null) ...[
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.primaryDark.withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: AppTheme.primaryDark.withValues(alpha: 0.5), width: 0.8),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.groups, size: 11, color: AppTheme.primaryDark),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                workspaces.firstWhere(
+                                                  (w) => w.id == reminder.workspaceId,
+                                                  orElse: () => WorkspaceModel(id: '', name: 'Equipo', ownerId: ''),
+                                                ).name,
+                                                style: const TextStyle(
+                                                  fontSize: 10,
+                                                  color: AppTheme.primaryDark,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
-                                  onPressed: () {
-                                    ref.read(remindersProvider.notifier).deleteReminder(reminder.id);
-                                  },
-                                ),
+                                ],
+                              ),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
+                                onPressed: () {
+                                  ref.read(remindersProvider.notifier).deleteReminder(reminder.id);
+                                },
                               ),
                             ),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
         ),
-      );
+      ),
+    );
   }
 }

@@ -48,10 +48,10 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
             final isDark = Theme.of(context).brightness == Brightness.dark;
             return AlertDialog(
               backgroundColor: isDark ? AppTheme.surfaceDark : Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               title: Text(
                 'Crear Hábito',
-                style: TextStyle(color: isDark ? Colors.white : AppTheme.textPrimaryLight),
+                style: TextStyle(color: isDark ? Colors.white : AppTheme.textPrimaryLight, fontWeight: FontWeight.bold),
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -60,7 +60,7 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
                     controller: _habitController,
                     labelText: 'Nombre del Hábito',
                     hintText: 'ej. Meditar, Leer 15 min',
-                    prefixIcon: Icons.bolt,
+                    prefixIcon: Icons.bolt_rounded,
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
@@ -68,7 +68,7 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
                     decoration: InputDecoration(
                       labelText: 'Frecuencia',
                       filled: true,
-                      fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey[100],
+                      fillColor: isDark ? AppTheme.surfaceDarkElevated : Colors.grey[100],
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
                     ),
                     items: const [
@@ -97,7 +97,7 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryDark,
                     foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                   onPressed: () {
                     final name = _habitController.text.trim();
@@ -128,7 +128,7 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
     return Scaffold(
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+          padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 16.0, bottom: 90.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -140,7 +140,7 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Mi Productividad',
+                        'Hábitos & Gamificación',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -149,9 +149,9 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Completa hábitos cotidianos para subir de nivel',
+                        'Completa hábitos diarios para acumular XP',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 13,
                           color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
                         ),
                       ),
@@ -174,92 +174,104 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
               ),
               const SizedBox(height: 20),
 
-              // 2. GAMIFICATION CARD (Level & XP Tracker)
-              Card(
-                elevation: isDark ? 0 : 3,
-                color: isDark ? AppTheme.surfaceDark : Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(
-                    color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey[200]!,
+              // 2. GAMIFICATION CARD (Level & XP Tracker with Glow)
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.surfaceDark : Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(
+                    color: isDark ? AppTheme.glassBorder : Colors.grey[200]!,
+                    width: 1,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppTheme.primaryDark.withValues(alpha: isDark ? 0.12 : 0.05),
+                      blurRadius: 16,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                child: Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Nivel ${levelDetails['level']}',
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.primaryDark,
-                                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Nivel ${levelDetails['level']}',
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.primaryDark,
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                levelDetails['levelName'] as String,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: isDark ? Colors.white70 : Colors.black87,
-                                ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              levelDetails['levelName'] as String,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? Colors.white70 : Colors.black87,
                               ),
-                            ],
-                          ),
-                          Icon(
-                            Icons.emoji_events,
-                            size: 40,
-                            color: Colors.amber[600],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: LinearProgressIndicator(
-                          value: levelDetails['progress'] as double,
-                          minHeight: 12,
-                          backgroundColor: isDark ? Colors.white12 : Colors.grey[200],
-                          valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryDark),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'XP: ${levelDetails['xp']}/100',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
-                            ),
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.amber.withValues(alpha: 0.15),
                           ),
-                          Text(
-                            'Puntos Totales: ${notifier.totalPoints}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
-                            ),
+                          child: Icon(
+                            Icons.emoji_events_rounded,
+                            size: 32,
+                            color: Colors.amber[500],
                           ),
-                        ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: LinearProgressIndicator(
+                        value: levelDetails['progress'] as double,
+                        minHeight: 10,
+                        backgroundColor: isDark ? Colors.white10 : Colors.grey[200],
+                        valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryDark),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'XP: ${levelDetails['xp']}/100',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                          ),
+                        ),
+                        Text(
+                          'Puntos Totales: ${notifier.totalPoints}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? AppTheme.accentTeal : AppTheme.accentIndigo,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 24),
 
               Text(
-                'Mis Hábitos',
+                'Mis Hábitos Activos',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -276,9 +288,9 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              Icons.spa_outlined,
+                              Icons.bolt_rounded,
                               size: 64,
-                              color: isDark ? Colors.white24 : Colors.grey[300],
+                              color: isDark ? Colors.white12 : Colors.grey[300],
                             ),
                             const SizedBox(height: 12),
                             Text(
@@ -305,40 +317,36 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
                         itemBuilder: (context, index) {
                           final habit = habits[index];
                           final today = DateTime.now();
-                          
-                          // Check if completed today
                           final isCompletedToday = habit.lastCompleted != null &&
                               habit.lastCompleted!.day == today.day &&
                               habit.lastCompleted!.month == today.month &&
                               habit.lastCompleted!.year == today.year;
 
                           return Padding(
-                            padding: const EdgeInsets.only(bottom: 12.0),
-                            child: Card(
-                              elevation: isDark ? 0 : 2,
-                              color: isDark ? AppTheme.surfaceDark : Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                                side: BorderSide(
-                                  color: isDark
-                                      ? Colors.white.withValues(alpha: 0.05)
-                                      : Colors.grey[200]!,
+                            padding: const EdgeInsets.only(bottom: 10.0),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: isDark ? AppTheme.surfaceDark : Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: isDark ? AppTheme.glassBorder : Colors.grey[200]!,
+                                  width: 1,
                                 ),
                               ),
                               child: ListTile(
                                 leading: IconButton(
                                   icon: Icon(
                                     isCompletedToday
-                                        ? Icons.check_circle
-                                        : Icons.radio_button_unchecked,
+                                        ? Icons.check_circle_rounded
+                                        : Icons.radio_button_unchecked_rounded,
                                     color: isCompletedToday
-                                        ? Colors.teal
-                                        : (isDark ? Colors.white54 : Colors.black45),
+                                        ? AppTheme.accentTeal
+                                        : (isDark ? Colors.white38 : Colors.black38),
                                     size: 28,
                                   ),
                                   onPressed: () async {
                                     if (isCompletedToday) {
-                                      AppToast.show(context, message: '¡Ya marcaste este hábito hoy!', type: AppToastType.warning);
+                                      AppToast.show(context, message: '¡Ya completaste este hábito hoy!', type: AppToastType.warning);
                                       return;
                                     }
                                     final res = await ref.read(habitsProvider.notifier).completeHabit(habit.id);
@@ -362,10 +370,10 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
                                 subtitle: Row(
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
                                         color: AppTheme.primaryDark.withValues(alpha: 0.15),
-                                        borderRadius: BorderRadius.circular(6),
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
                                       child: Text(
                                         habit.frequency == 'daily' ? 'Diario' : 'Semanal',
@@ -376,12 +384,12 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 12),
+                                    const SizedBox(width: 10),
                                     if (habit.streak > 0) ...[
-                                      const Icon(Icons.local_fire_department, color: Colors.orange, size: 16),
+                                      const Icon(Icons.local_fire_department_rounded, color: Colors.orange, size: 16),
                                       const SizedBox(width: 2),
                                       Text(
-                                        'Racha: ${habit.streak} d',
+                                        '${habit.streak} d racha',
                                         style: const TextStyle(
                                           fontSize: 11,
                                           color: Colors.orange,
@@ -392,7 +400,7 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
                                   ],
                                 ),
                                 trailing: IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
                                   onPressed: () {
                                     ref.read(habitsProvider.notifier).deleteHabit(habit.id);
                                     AppToast.show(context, message: 'Hábito eliminado', type: AppToastType.warning);
@@ -408,12 +416,15 @@ class _HabitsScreenState extends ConsumerState<HabitsScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppTheme.primaryDark,
-        foregroundColor: Colors.black,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        onPressed: _showAddHabitDialog,
-        child: const Icon(Icons.add, size: 28),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 72.0),
+        child: FloatingActionButton(
+          backgroundColor: AppTheme.primaryDark,
+          foregroundColor: Colors.black,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          onPressed: _showAddHabitDialog,
+          child: const Icon(Icons.add_rounded, size: 28),
+        ),
       ),
     );
   }

@@ -69,136 +69,197 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         elevation: 0,
         leading: IconButton(
           icon: Icon(
-            Icons.arrow_back,
+            Icons.arrow_back_ios_new_rounded,
             color: isDark ? Colors.white : AppTheme.textPrimaryLight,
           ),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const GaxxsIconMark(size: 48),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Crear Cuenta',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Únete a My-Reminder y sincroniza tus notas en la nube',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  // Fields container
-                  Card(
-                    elevation: isDark ? 0 : 2,
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        children: [
-                          AppTextField(
-                            controller: _userController,
-                            labelText: 'Nombre de Usuario',
-                            hintText: 'ej. pedro_gomez',
-                            prefixIcon: Icons.person_outline,
-                            validator: (val) {
-                              if (val == null || val.trim().isEmpty) return 'El usuario es requerido';
-                              if (val.trim().length < 3) return 'Debe tener al menos 3 caracteres';
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          AppTextField(
-                            controller: _passController,
-                            labelText: 'Contraseña',
-                            isPassword: true,
-                            prefixIcon: Icons.lock_outline,
-                            validator: (val) {
-                              if (val == null || val.isEmpty) return 'La contraseña es requerida';
-                              if (val.length < 6) return 'Debe tener al menos 6 caracteres';
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-                          AppTextField(
-                            controller: _confirmPassController,
-                            labelText: 'Confirmar Contraseña',
-                            isPassword: true,
-                            prefixIcon: Icons.lock_clock_outlined,
-                            validator: (val) {
-                              if (val == null || val.isEmpty) return 'Confirma tu contraseña';
-                              if (val != _passController.text) return 'Las contraseñas no coinciden';
-                              return null;
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 28),
-
-                  if (_isLoading)
-                    const GaxxsLoader(showBrandName: false, size: 48)
-                  else
-                    SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryDark,
-                          foregroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 0,
-                        ),
-                        onPressed: _register,
-                        child: const Text(
-                          'Registrarse',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 24),
-                  
-                  // Toggle view link
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: Text(
-                      '¿Ya tienes cuenta? Inicia sesión aquí',
-                      style: TextStyle(
-                        color: isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
+      body: Stack(
+        children: [
+          Positioned(
+            top: -60,
+            left: -60,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppTheme.accentTeal.withValues(alpha: 0.12),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.accentTeal.withValues(alpha: 0.12),
+                    blurRadius: 100,
+                    spreadRadius: 40,
                   ),
                 ],
               ),
             ),
           ),
-        ),
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppTheme.surfaceDark,
+                          border: Border.all(color: AppTheme.glassBorder, width: 1.5),
+                        ),
+                        child: const GaxxsIconMark(size: 44),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Crear Cuenta',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.6,
+                          color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Únete a My-Reminder y sincroniza todo en la nube',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Glass Card Form Container
+                      Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppTheme.surfaceDark.withValues(alpha: 0.85) : Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: isDark ? AppTheme.glassBorder : Colors.grey[200]!,
+                            width: 1,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+                              blurRadius: 24,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            AppTextField(
+                              controller: _userController,
+                              labelText: 'Nombre de Usuario',
+                              hintText: 'ej. pedro_gomez',
+                              prefixIcon: Icons.person_outline_rounded,
+                              validator: (val) {
+                                if (val == null || val.trim().isEmpty) return 'El usuario es requerido';
+                                if (val.trim().length < 3) return 'Debe tener al menos 3 caracteres';
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            AppTextField(
+                              controller: _passController,
+                              labelText: 'Contraseña',
+                              isPassword: true,
+                              prefixIcon: Icons.lock_outline_rounded,
+                              validator: (val) {
+                                if (val == null || val.isEmpty) return 'La contraseña es requerida';
+                                if (val.length < 6) return 'Debe tener al menos 6 caracteres';
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            AppTextField(
+                              controller: _confirmPassController,
+                              labelText: 'Confirmar Contraseña',
+                              isPassword: true,
+                              prefixIcon: Icons.lock_reset_rounded,
+                              validator: (val) {
+                                if (val == null || val.isEmpty) return 'Confirma tu contraseña';
+                                if (val != _passController.text) return 'Las contraseñas no coinciden';
+                                return null;
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+
+                      if (_isLoading)
+                        const GaxxsLoader(showBrandName: false, size: 48)
+                      else
+                        Container(
+                          width: double.infinity,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(18),
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF38BDF8), Color(0xFF2DD4BF)],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppTheme.primaryDark.withValues(alpha: 0.35),
+                                blurRadius: 20,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                            ),
+                            onPressed: _register,
+                            child: const Text(
+                              'Registrarse',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                              ),
+                            ),
+                          ),
+                        ),
+                      const SizedBox(height: 24),
+
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: RichText(
+                          text: TextSpan(
+                            style: TextStyle(fontSize: 14, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                            children: const [
+                              TextSpan(text: '¿Ya tienes cuenta? '),
+                              TextSpan(
+                                text: 'Inicia sesión aquí',
+                                style: TextStyle(
+                                  color: AppTheme.primaryDark,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
