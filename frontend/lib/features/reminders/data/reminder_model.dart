@@ -14,6 +14,9 @@ class ReminderModel {
   final String? locationName;
   final double? radiusInMeters;
 
+  // Optional Workspace field for shared collaboration spaces
+  final String? workspaceId;
+
   ReminderModel({
     required this.id,
     required this.title,
@@ -27,6 +30,7 @@ class ReminderModel {
     this.longitude,
     this.locationName,
     this.radiusInMeters = 150.0,
+    this.workspaceId,
   }) : createdAt = createdAt ?? DateTime.now();
 
   // Convert to SQLite Map
@@ -44,6 +48,7 @@ class ReminderModel {
       'longitude': longitude,
       'location_name': locationName,
       'radius_in_meters': radiusInMeters,
+      'workspace_id': workspaceId,
     };
   }
 
@@ -62,6 +67,7 @@ class ReminderModel {
       longitude: map['longitude'] as double?,
       locationName: map['location_name'] as String?,
       radiusInMeters: map['radius_in_meters'] as double?,
+      workspaceId: map['workspace_id'] as String?,
     );
   }
 
@@ -79,6 +85,7 @@ class ReminderModel {
       'longitude': longitude,
       'locationName': locationName,
       'radiusInMeters': radiusInMeters,
+      'workspaceId': workspaceId,
     };
   }
 
@@ -97,6 +104,7 @@ class ReminderModel {
       longitude: json['longitude'] != null ? (json['longitude'] as num).toDouble() : null,
       locationName: json['locationName'] as String?,
       radiusInMeters: json['radiusInMeters'] != null ? (json['radiusInMeters'] as num).toDouble() : null,
+      workspaceId: json['workspaceId'] as String?,
     );
   }
 
@@ -113,6 +121,7 @@ class ReminderModel {
     double? longitude,
     String? locationName,
     double? radiusInMeters,
+    String? workspaceId,
   }) {
     return ReminderModel(
       id: id ?? this.id,
@@ -127,6 +136,7 @@ class ReminderModel {
       longitude: longitude ?? this.longitude,
       locationName: locationName ?? this.locationName,
       radiusInMeters: radiusInMeters ?? this.radiusInMeters,
+      workspaceId: workspaceId ?? this.workspaceId,
     );
   }
 }

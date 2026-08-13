@@ -10,6 +10,9 @@ import '../../../core/widgets/app_toast.dart';
 import '../../assistant/presentation/assistant_screen.dart';
 import '../../habits/presentation/habits_screen.dart';
 import '../../notes/presentation/notes_screen.dart';
+import '../../workspaces/presentation/workspaces_screen.dart';
+import '../../workspaces/presentation/workspaces_provider.dart';
+import '../../workspaces/data/workspace_model.dart';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/widgets/gaxxs_loader.dart';
@@ -220,6 +223,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _buildRemindersBody(context, filteredReminders, isDark, usernameAsync),
       const HabitsScreen(),
       const NotesScreen(),
+      const WorkspacesScreen(),
     ];
 
     return Scaffold(
@@ -227,6 +231,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         selectedItemColor: AppTheme.primaryDark,
+        unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
         onTap: (index) {
           setState(() {
             _currentIndex = index;
@@ -247,6 +253,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             icon: Icon(Icons.article_outlined),
             activeIcon: Icon(Icons.article),
             label: 'Notas',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.groups_outlined),
+            activeIcon: Icon(Icons.groups),
+            label: 'Compartido',
           ),
         ],
       ),
@@ -509,6 +520,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           final reminder = filteredReminders[index];
                           final isCompleted = reminder.status == 'completed';
                           final Color catColor = _getCategoryColor(reminder.category);
+                          final workspaces = ref.watch(workspacesProvider);
 
                           return Padding(
                             padding: const EdgeInsets.only(bottom: 12.0),
@@ -599,6 +611,38 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                             color: isDark ? Colors.white54 : Colors.black54,
                                           ),
                                         ),
+                                        if (reminder.workspaceId != null) ...[
+                                          const SizedBox(width: 12),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.primaryDark.withValues(alpha: 0.15),
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: AppTheme.primaryDark, width: 0.8),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.groups, size: 10, color: AppTheme.primaryDark),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  workspaces.firstWhere(
+                                                    (w) => w.id == reminder.workspaceId,
+                                                    orElse: () => WorkspaceModel(id: '', name: 'Colaborativo', ownerId: ''),
+                                                  ).name,
+                                                  style: const TextStyle(
+                                                    fontSize: 10,
+                                                    color: AppTheme.primaryDark,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
                                       ],
                                     ),
                                   ],

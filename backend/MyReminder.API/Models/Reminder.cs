@@ -22,6 +22,9 @@ namespace MyReminder.API.Models
         public string? LocationName { get; set; }
         public double? RadiusInMeters { get; set; } = 150.0; // Default 150 meters
 
+        // Workspace collaboration optional field
+        public string? WorkspaceId { get; set; }
+
         [JsonIgnore]
         public virtual User? User { get; set; }
     }

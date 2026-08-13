@@ -13,10 +13,16 @@ namespace MyReminder.API.Data
         public DbSet<Reminder> Reminders { get; set; }
         public DbSet<Habit> Habits { get; set; }
         public DbSet<Note> Notes { get; set; }
+        public DbSet<Workspace> Workspaces { get; set; }
+        public DbSet<WorkspaceMember> WorkspaceMembers { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // Composite Key for Workspace members
+            modelBuilder.Entity<WorkspaceMember>()
+                .HasKey(wm => new { wm.WorkspaceId, wm.UserId });
 
             // Configure relationships
             modelBuilder.Entity<Reminder>()
@@ -37,6 +43,24 @@ namespace MyReminder.API.Data
                 .HasForeignKey(n => n.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            modelBuilder.Entity<WorkspaceMember>()
+                .HasOne(wm => wm.Workspace)
+                .WithMany()
+                .HasForeignKey(wm => wm.WorkspaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<WorkspaceMember>()
+                .HasOne(wm => wm.User)
+                .WithMany()
+                .HasForeignKey(wm => wm.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Workspace>()
+                .HasOne(w => w.Owner)
+                .WithMany()
+                .HasForeignKey(w => w.OwnerId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             // Indexing for faster lookups
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.Username)
@@ -44,6 +68,9 @@ namespace MyReminder.API.Data
 
             modelBuilder.Entity<Reminder>()
                 .HasIndex(r => r.UserId);
+
+            modelBuilder.Entity<Reminder>()
+                .HasIndex(r => r.WorkspaceId);
 
             modelBuilder.Entity<Habit>()
                 .HasIndex(h => h.UserId);

@@ -25,7 +25,7 @@ class DbHelper {
 
     _database = await openDatabase(
       path,
-      version: 4, // Bump to version 4 to include location fields on reminders
+      version: 5, // Bump to version 5 to include workspaces table
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
@@ -55,7 +55,8 @@ class DbHelper {
         latitude REAL,
         longitude REAL,
         location_name TEXT,
-        radius_in_meters REAL
+        radius_in_meters REAL,
+        workspace_id TEXT
       )
     ''');
 
@@ -94,6 +95,16 @@ class DbHelper {
       )
     ''');
 
+    // Workspaces table
+    await db.execute('''
+      CREATE TABLE workspaces (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        owner_id TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    ''');
+
     // Insert default categories
     await db.rawInsert("INSERT INTO categories (id, name, color, icon) VALUES ('cat-1', 'Trabajo', '#38BDF8', 'work')");
     await db.rawInsert("INSERT INTO categories (id, name, color, icon) VALUES ('cat-2', 'Personal', '#0D9488', 'person')");
@@ -127,11 +138,21 @@ class DbHelper {
       ''');
     }
     if (oldVersion < 4) {
-      // Add location fields to reminders
       await db.execute('ALTER TABLE reminders ADD COLUMN latitude REAL');
       await db.execute('ALTER TABLE reminders ADD COLUMN longitude REAL');
       await db.execute('ALTER TABLE reminders ADD COLUMN location_name TEXT');
       await db.execute('ALTER TABLE reminders ADD COLUMN radius_in_meters REAL');
+    }
+    if (oldVersion < 5) {
+      await db.execute('ALTER TABLE reminders ADD COLUMN workspace_id TEXT');
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS workspaces (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          owner_id TEXT NOT NULL,
+          created_at TEXT NOT NULL
+        )
+      ''');
     }
   }
 
@@ -143,6 +164,7 @@ class DbHelper {
     await _database!.delete('categories');
     await _database!.delete('habits');
     await _database!.delete('notes');
+    await _database!.delete('workspaces');
     
     // Re-insert defaults
     await _database!.rawInsert("INSERT INTO categories (id, name, color, icon) VALUES ('cat-1', 'Trabajo', '#38BDF8', 'work')");

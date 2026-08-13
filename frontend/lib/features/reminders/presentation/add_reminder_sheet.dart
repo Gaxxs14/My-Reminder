@@ -8,6 +8,7 @@ import '../../../core/widgets/app_text_field.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../data/reminder_model.dart';
 import 'reminders_provider.dart';
+import '../../workspaces/presentation/workspaces_provider.dart';
 
 class AddReminderSheet extends ConsumerStatefulWidget {
   const AddReminderSheet({super.key});
@@ -27,6 +28,7 @@ class _AddReminderSheetState extends ConsumerState<AddReminderSheet> {
   final _latitudeController = TextEditingController();
   final _longitudeController = TextEditingController();
   final _radiusController = TextEditingController(text: '150');
+  String? _selectedWorkspaceId;
 
   DateTime _selectedDate = DateTime.now().add(const Duration(minutes: 10));
   TimeOfDay _selectedTime = TimeOfDay.fromDateTime(DateTime.now().add(const Duration(minutes: 10)));
@@ -149,6 +151,7 @@ class _AddReminderSheetState extends ConsumerState<AddReminderSheet> {
           ? _locationNameController.text.trim()
           : null,
       radiusInMeters: _useLocation ? (double.tryParse(_radiusController.text) ?? 150.0) : null,
+      workspaceId: _selectedWorkspaceId,
     );
 
     ref.read(remindersProvider.notifier).addReminder(newReminder);
@@ -159,6 +162,7 @@ class _AddReminderSheetState extends ConsumerState<AddReminderSheet> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final workspaces = ref.watch(workspacesProvider);
 
     return Container(
       padding: EdgeInsets.only(
@@ -295,6 +299,36 @@ class _AddReminderSheetState extends ConsumerState<AddReminderSheet> {
                   },
                 ),
               ),
+              if (workspaces.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Text(
+                  'Asignar a Espacio Colaborativo (Opcional)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String?>(
+                  initialValue: _selectedWorkspaceId,
+                  decoration: InputDecoration(
+                    labelText: 'Espacio Compartido',
+                    filled: true,
+                    fillColor: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey[100],
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  items: [
+                    const DropdownMenuItem(value: null, child: Text('Ninguno (Tarea Personal)')),
+                    ...workspaces.map((ws) => DropdownMenuItem(value: ws.id, child: Text(ws.name))),
+                  ],
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedWorkspaceId = val;
+                    });
+                  },
+                ),
+              ],
               const SizedBox(height: 20),
               SwitchListTile(
                 title: const Text('Alarma Geográfica (GPS)'),
