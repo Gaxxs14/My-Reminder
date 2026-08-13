@@ -4,7 +4,22 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MyReminder.API.Data;
 
+// Fix inotify crash on Render free tier:
+// Render's kernel limits inotify instances to 128. ASP.NET Core's default
+// CreateBuilder watches config files with FileSystemWatcher which consumes
+// inotify instances. We build configuration manually with reloadOnChange=false.
+Environment.SetEnvironmentVariable("DOTNET_USE_POLLING_FILE_WATCHER", "1");
+
 var builder = WebApplication.CreateBuilder(args);
+
+// Disable reload-on-change on every JSON config source that was auto-added
+foreach (var source in builder.Configuration.Sources
+    .OfType<Microsoft.Extensions.Configuration.FileConfigurationSource>()
+    .ToList())
+{
+    source.ReloadOnChange = false;
+}
+
 
 // Add Database Context
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
