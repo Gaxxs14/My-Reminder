@@ -8,6 +8,7 @@ import 'reminders_provider.dart';
 import 'add_reminder_sheet.dart';
 import '../../../core/widgets/app_toast.dart';
 import '../../assistant/presentation/assistant_screen.dart';
+import '../../habits/presentation/habits_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -20,6 +21,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   DateTime _selectedDate = DateTime.now();
   String _selectedCategory = 'Todas';
   bool _isSyncing = false;
+  int _currentIndex = 0;
 
   final List<String> _categories = ['Todas', 'Personal', 'Trabajo', 'Salud', 'General'];
 
@@ -79,8 +81,59 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return isSameDay && matchesCategory;
     }).toList();
 
+    final List<Widget> screens = [
+      _buildRemindersBody(context, filteredReminders, isDark, usernameAsync),
+      const HabitsScreen(),
+    ];
+
     return Scaffold(
-      body: SafeArea(
+      body: screens[_currentIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        selectedItemColor: AppTheme.primaryDark,
+        onTap: (index) {
+          setState(() {
+            _currentIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_month_outlined),
+            activeIcon: Icon(Icons.calendar_month),
+            label: 'Agenda',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.spa_outlined),
+            activeIcon: Icon(Icons.spa),
+            label: 'Hábitos',
+          ),
+        ],
+      ),
+      floatingActionButton: _currentIndex == 0
+          ? FloatingActionButton(
+              backgroundColor: AppTheme.primaryDark,
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              onPressed: () {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (context) => const AddReminderSheet(),
+                );
+              },
+              child: const Icon(Icons.add, size: 28),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildRemindersBody(
+    BuildContext context,
+    List<dynamic> filteredReminders,
+    bool isDark,
+    AsyncValue<String> usernameAsync,
+  ) {
+    return SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
           child: Column(
@@ -423,20 +476,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppTheme.primaryDark,
-        foregroundColor: Colors.black,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        onPressed: () {
-          showModalBottomSheet(
-            context: context,
-            isScrollControlled: true,
-            builder: (context) => const AddReminderSheet(),
-          );
-        },
-        child: const Icon(Icons.add, size: 28),
-      ),
-    );
+      );
   }
 }

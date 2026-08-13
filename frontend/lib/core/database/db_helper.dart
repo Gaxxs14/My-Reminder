@@ -25,8 +25,9 @@ class DbHelper {
 
     _database = await openDatabase(
       path,
-      version: 1,
+      version: 2, // Bump to version 2 to include habits table
       onCreate: _onCreate,
+      onUpgrade: _onUpgrade,
     );
   }
 
@@ -64,10 +65,41 @@ class DbHelper {
       )
     ''');
 
+    // Habits table
+    await db.execute('''
+      CREATE TABLE habits (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        frequency TEXT NOT NULL DEFAULT 'daily',
+        streak INTEGER NOT NULL DEFAULT 0,
+        last_completed TEXT, -- ISO 8601 String
+        points INTEGER NOT NULL DEFAULT 0,
+        is_synced INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      )
+    ''');
+
     // Insert default categories
     await db.rawInsert("INSERT INTO categories (id, name, color, icon) VALUES ('cat-1', 'Trabajo', '#38BDF8', 'work')");
     await db.rawInsert("INSERT INTO categories (id, name, color, icon) VALUES ('cat-2', 'Personal', '#0D9488', 'person')");
     await db.rawInsert("INSERT INTO categories (id, name, color, icon) VALUES ('cat-3', 'Salud', '#EF4444', 'favorite')");
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS habits (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          frequency TEXT NOT NULL DEFAULT 'daily',
+          streak INTEGER NOT NULL DEFAULT 0,
+          last_completed TEXT,
+          points INTEGER NOT NULL DEFAULT 0,
+          is_synced INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL
+        )
+      ''');
+    }
   }
 
   // Clear all local tables (used on logout/reset)
@@ -76,6 +108,8 @@ class DbHelper {
     await _database!.delete('reminders');
     await _database!.delete('users');
     await _database!.delete('categories');
+    await _database!.delete('habits');
+    
     // Re-insert defaults
     await _database!.rawInsert("INSERT INTO categories (id, name, color, icon) VALUES ('cat-1', 'Trabajo', '#38BDF8', 'work')");
     await _database!.rawInsert("INSERT INTO categories (id, name, color, icon) VALUES ('cat-2', 'Personal', '#0D9488', 'person')");

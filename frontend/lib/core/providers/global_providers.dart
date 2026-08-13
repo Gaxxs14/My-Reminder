@@ -7,6 +7,7 @@ import '../security/secure_storage_service.dart';
 import '../services/notification_service.dart';
 import '../network/sync_service.dart';
 import '../../features/reminders/data/local_reminder_repository.dart';
+import '../../features/habits/data/local_habit_repository.dart';
 
 final secureStorageProvider = Provider<SecureStorageService>((ref) {
   return SecureStorageService();
@@ -22,6 +23,10 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
 
 final localReminderRepositoryProvider = Provider<LocalReminderRepository>((ref) {
   return LocalReminderRepository(ref.watch(dbHelperProvider));
+});
+
+final localHabitRepositoryProvider = Provider<LocalHabitRepository>((ref) {
+  return LocalHabitRepository(ref.watch(dbHelperProvider));
 });
 
 final syncServiceProvider = Provider<SyncService>((ref) {
