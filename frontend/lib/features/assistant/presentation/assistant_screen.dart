@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:intl/intl.dart';
 import '../../../core/providers/global_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -14,11 +15,13 @@ class MessageItem {
   final String text;
   final bool isUser;
   final DateTime timestamp;
+  final ReminderModel? createdReminder;
 
   MessageItem({
     required this.text,
     required this.isUser,
     DateTime? timestamp,
+    this.createdReminder,
   }) : timestamp = timestamp ?? DateTime.now();
 }
 
@@ -51,10 +54,10 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
     _initSpeech();
     _initTts();
     
-    // Add welcome message from Assistant
+    // Welcome message from Assistant
     _messages.add(
       MessageItem(
-        text: '¡Hola! Soy tu asistente de My Reminder. Toca el micrófono para hablar o escribe tu mensaje abajo, por ejemplo: "Recuérdame comprar fruta mañana a las 5 PM".',
+        text: '¡Hola! Soy tu asistente de My Reminder. Toca el micrófono para hablar o escribe tu mensaje abajo, por ejemplo: "Recuérdame pagar la luz mañana a las 5 PM". ¡Tus tareas se guardarán automáticamente en tu Agenda!',
         isUser: false,
       ),
     );
@@ -130,6 +133,47 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
     await _flutterTts.speak(text);
   }
 
+  // Fallback local intent parser for robust reminder creation
+  ReminderModel _createLocalReminder(String queryText) {
+    String lower = queryText.toLowerCase();
+    String title = queryText;
+    final prefixes = [
+      'recuérdame ', 'recordar ', 'agendar ', 'crear tarea ', 'un recordatorio para ', 'recordatorio ',
+      'tengo que ', 'debemos ', 'llamar a ', 'comprar '
+    ];
+    for (final p in prefixes) {
+      if (title.toLowerCase().startsWith(p)) {
+        title = title.substring(p.length).trim();
+        break;
+      }
+    }
+    if (title.isEmpty) title = queryText;
+    // Capitalize title
+    title = title[0].toUpperCase() + title.substring(1);
+
+    DateTime dueDate = DateTime.now().add(const Duration(hours: 2));
+    if (lower.contains('mañana')) {
+      dueDate = DateTime.now().add(const Duration(days: 1));
+    } else if (lower.contains('pasado mañana')) {
+      dueDate = DateTime.now().add(const Duration(days: 2));
+    }
+
+    return ReminderModel(
+      id: 'r-${DateTime.now().millisecondsSinceEpoch}',
+      title: title,
+      description: 'Agendado mediante Asistente de Voz',
+      category: lower.contains('salud') || lower.contains('médico') || lower.contains('doctor')
+          ? 'Salud'
+          : lower.contains('trabajo') || lower.contains('reunión') || lower.contains('oficina')
+              ? 'Trabajo'
+              : 'Personal',
+      dueDate: dueDate,
+      status: 'pending',
+      isSynced: false,
+      createdAt: DateTime.now(),
+    );
+  }
+
   // Toggle listening state cleanly (Tap to start / Tap to stop)
   Future<void> _toggleListening() async {
     if (_isListening) {
@@ -201,10 +245,12 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
     });
     _scrollToBottom();
 
+    ReminderModel? createdReminder;
+    String speechResponse = 'Entendido.';
+
     try {
       final apiClient = ref.read(apiClientProvider);
       
-      // POST user text to backend C# AI Assistant endpoint
       final response = await apiClient.post(
         '/api/assistant/talk',
         data: {'message': queryText},
@@ -212,26 +258,12 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
-        final String speechResponse = data['speechResponse'] as String? ?? 'Entendido.';
+        speechResponse = data['speechResponse'] as String? ?? 'Entendido.';
         final String action = data['action'] as String? ?? 'talk';
 
-        if (mounted) {
-          setState(() {
-            _messages.add(MessageItem(text: speechResponse, isUser: false));
-          });
-        }
-        _scrollToBottom();
-        
-        // Speak assistant response aloud ONLY if user spoke by voice and speaker is enabled
-        if (isVoiceInput && _isSpeakerEnabled) {
-          await _speak(speechResponse);
-        }
-
-        // If backend created a reminder, save it locally in SQLite
         if (action == 'create' && data['createdReminder'] != null) {
           final reminderJson = Map<String, dynamic>.from(data['createdReminder'] as Map);
-          
-          final localReminder = ReminderModel(
+          createdReminder = ReminderModel(
             id: reminderJson['id'] as String,
             title: reminderJson['title'] as String,
             description: reminderJson['description'] as String?,
@@ -241,34 +273,67 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
             isSynced: true,
             createdAt: DateTime.parse(reminderJson['createdAt'] as String).toLocal(),
           );
-
-          await ref.read(remindersProvider.notifier).addReminder(localReminder);
-          
-          if (mounted) {
-            AppToast.show(context, message: '¡Recordatorio agendado por voz!', type: AppToastType.success);
-          }
         }
       }
-    } catch (e) {
-      if (mounted) {
-        final fallbackMsg = 'Entendido. He registrado tu consulta: "$queryText".';
-        setState(() {
-          _messages.add(MessageItem(text: fallbackMsg, isUser: false));
-        });
-        if (isVoiceInput && _isSpeakerEnabled) {
-          _speak(fallbackMsg);
-        }
-        AppToast.show(context, message: 'Modo fuera de línea activado.', type: AppToastType.info);
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _isSending = false;
-        });
-      }
-      _scrollToBottom();
+    } catch (_) {
+      // Backend offline fallback: check if query text looks like a reminder
+      speechResponse = 'Entendido. Agendé tu compromiso en tu Agenda.';
     }
+
+    // Force fallback local parsing if no reminder model returned but query has intent
+    final lower = queryText.toLowerCase();
+    final hasReminderIntent = lower.contains('recuérdame') ||
+        lower.contains('recordar') ||
+        lower.contains('agendar') ||
+        lower.contains('crear tarea') ||
+        lower.contains('cita') ||
+        lower.contains('reunión') ||
+        lower.contains('comprar') ||
+        lower.contains('tengo que') ||
+        lower.contains('llamar');
+
+    if (createdReminder == null && hasReminderIntent) {
+      createdReminder = _createLocalReminder(queryText);
+      speechResponse = '¡Entendido! He agendado "${createdReminder.title}" en tu Agenda principal.';
+    }
+
+    // If a reminder was created (cloud or local), persist to local SQLite and state
+    if (createdReminder != null) {
+      await ref.read(localReminderRepositoryProvider).insertReminder(createdReminder);
+      await ref.read(remindersProvider.notifier).loadReminders();
+
+      if (mounted) {
+        AppToast.show(
+          context,
+          message: '¡Agendado en tu Agenda: "${createdReminder.title}"!',
+          type: AppToastType.success,
+        );
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _messages.add(MessageItem(
+          text: speechResponse,
+          isUser: false,
+          createdReminder: createdReminder,
+        ));
+      });
+    }
+
+    _scrollToBottom();
+
+    if (isVoiceInput && _isSpeakerEnabled) {
+      await _speak(speechResponse);
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _isSending = false;
+      });
+    }
+    _scrollToBottom();
   }
 
   void _scrollToBottom() {
@@ -334,37 +399,103 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
                     padding: const EdgeInsets.only(bottom: 12.0),
                     child: Align(
                       alignment: msg.isUser ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        constraints: BoxConstraints(
-                          maxWidth: MediaQuery.of(context).size.width * 0.78,
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                        decoration: BoxDecoration(
-                          color: msg.isUser
-                              ? AppTheme.primaryDark
-                              : (isDark ? AppTheme.surfaceDark : Colors.grey[200]),
-                          borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(18),
-                            topRight: const Radius.circular(18),
-                            bottomLeft: msg.isUser ? const Radius.circular(18) : Radius.zero,
-                            bottomRight: msg.isUser ? Radius.zero : const Radius.circular(18),
+                      child: Column(
+                        crossAxisAlignment: msg.isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            constraints: BoxConstraints(
+                              maxWidth: MediaQuery.of(context).size.width * 0.78,
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                            decoration: BoxDecoration(
+                              color: msg.isUser
+                                  ? AppTheme.primaryDark
+                                  : (isDark ? AppTheme.surfaceDark : Colors.grey[200]),
+                              borderRadius: BorderRadius.only(
+                                topLeft: const Radius.circular(18),
+                                topRight: const Radius.circular(18),
+                                bottomLeft: msg.isUser ? const Radius.circular(18) : Radius.zero,
+                                bottomRight: msg.isUser ? Radius.zero : const Radius.circular(18),
+                              ),
+                              border: Border.all(
+                                color: msg.isUser
+                                    ? AppTheme.primaryDark
+                                    : (isDark ? AppTheme.glassBorder : Colors.transparent),
+                              ),
+                            ),
+                            child: Text(
+                              msg.text,
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: msg.isUser
+                                    ? Colors.black
+                                    : (isDark ? Colors.white : AppTheme.textPrimaryLight),
+                                height: 1.4,
+                              ),
+                            ),
                           ),
-                          border: Border.all(
-                            color: msg.isUser
-                                ? AppTheme.primaryDark
-                                : (isDark ? AppTheme.glassBorder : Colors.transparent),
-                          ),
-                        ),
-                        child: Text(
-                          msg.text,
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: msg.isUser
-                                ? Colors.black
-                                : (isDark ? Colors.white : AppTheme.textPrimaryLight),
-                            height: 1.4,
-                          ),
-                        ),
+
+                          // If this response created a reminder, show a dedicated interactive badge card!
+                          if (msg.createdReminder != null) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              width: MediaQuery.of(context).size.width * 0.75,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppTheme.accentTeal.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: AppTheme.accentTeal.withValues(alpha: 0.5)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Row(
+                                    children: [
+                                      Icon(Icons.check_circle_rounded, color: AppTheme.accentTeal, size: 18),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'Recordatorio Guardado en Agenda',
+                                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.accentTeal),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    msg.createdReminder!.title,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white : Colors.black87,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.event_rounded, size: 14, color: isDark ? Colors.white70 : Colors.black54),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        DateFormat('dd MMM yyyy, HH:mm').format(msg.createdReminder!.dueDate),
+                                        style: TextStyle(fontSize: 12, color: isDark ? Colors.white70 : Colors.black54),
+                                      ),
+                                      const Spacer(),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.primaryDark.withValues(alpha: 0.2),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: Text(
+                                          msg.createdReminder!.category,
+                                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   );
@@ -431,7 +562,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
                       style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
-                        hintText: 'Escribe un mensaje...',
+                        hintText: 'Escribe un mensaje o recordatorio...',
                         hintStyle: const TextStyle(fontSize: 14, color: Colors.grey),
                         filled: true,
                         fillColor: isDark ? AppTheme.surfaceDarkElevated : Colors.grey[100],
