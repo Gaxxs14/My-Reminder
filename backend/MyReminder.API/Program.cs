@@ -29,9 +29,20 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // Add TokenService, GeminiService, HttpClient, Controllers and Swagger/OpenAPI support
 builder.Services.AddHttpClient();
+
+// Named HttpClient for KeepAliveService self-ping (points to this same Render instance)
+builder.Services.AddHttpClient("KeepAlive", client =>
+{
+    client.BaseAddress = new Uri("https://my-reminder-zu31.onrender.com");
+    client.Timeout = TimeSpan.FromSeconds(20);
+});
+
 builder.Services.AddScoped<MyReminder.API.Services.TokenService>();
 builder.Services.AddScoped<MyReminder.API.Services.GeminiService>();
 builder.Services.AddControllers();
+
+// Register KeepAlive background service to prevent Render free tier spin-down
+builder.Services.AddHostedService<MyReminder.API.Services.KeepAliveService>();
 
 // Add CORS Policy for mobile/local testing
 builder.Services.AddCors(options =>
