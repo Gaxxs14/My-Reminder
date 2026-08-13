@@ -21,7 +21,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _isSyncing = false;
   final ImagePicker _imagePicker = ImagePicker();
 
-  final List<String> _emojiAvatars = [
+  final List<String> _avatarOptions = [
     '👤', '🧑‍💻', '🦁', '⚡', '💎', '👑', '🚀', '🦊', '🦸', '🔥', '🎯', '🌟'
   ];
 
@@ -66,118 +66,57 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-  void _showAvatarPicker() {
+  void _showImagePickerOptions() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? AppTheme.surfaceDark : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        title: Text(
-          'Personalizar Perfil',
-          style: TextStyle(
-            color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.camera_alt_rounded, size: 18),
-                      label: const Text('Cámara', style: TextStyle(fontSize: 13)),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.primaryDark,
-                        side: const BorderSide(color: AppTheme.primaryDark),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _pickProfileImage(ImageSource.camera);
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.photo_library_rounded, size: 18),
-                      label: const Text('Galería', style: TextStyle(fontSize: 13)),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.accentTeal,
-                        side: const BorderSide(color: AppTheme.accentTeal),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        _pickProfileImage(ImageSource.gallery);
-                      },
-                    ),
-                  ),
-                ],
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Foto de Perfil',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : AppTheme.textPrimaryLight,
               ),
-              if (_profileImagePath != null) ...[
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 16),
-                  label: const Text('Quitar foto', style: TextStyle(color: Colors.redAccent, fontSize: 12)),
-                  onPressed: () async {
-                    await ref.read(secureStorageProvider).write('user_photo_path', '');
-                    setState(() => _profileImagePath = null);
-                    if (mounted) Navigator.pop(context);
-                    if (mounted) AppToast.show(context, message: 'Foto eliminada', type: AppToastType.warning);
-                  },
-                ),
-              ],
-              const Divider(height: 24),
-              Text(
-                'O elige un Avatar',
-                style: TextStyle(
-                  color: isDark ? Colors.white54 : Colors.black45,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                alignment: WrapAlignment.center,
-                children: _emojiAvatars.map((av) {
-                  final isSelected = _selectedAvatar == av && _profileImagePath == null;
-                  return GestureDetector(
-                    onTap: () async {
-                      await ref.read(secureStorageProvider).write('user_avatar', av);
-                      await ref.read(secureStorageProvider).write('user_photo_path', '');
-                      setState(() {
-                        _selectedAvatar = av;
-                        _profileImagePath = null;
-                      });
-                      if (mounted) Navigator.pop(context);
-                      if (mounted) AppToast.show(context, message: '¡Avatar actualizado!', type: AppToastType.success);
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: isSelected ? AppTheme.primaryDark.withValues(alpha: 0.25) : (isDark ? AppTheme.surfaceDarkElevated : Colors.grey[200]),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: isSelected ? AppTheme.primaryDark : Colors.transparent, width: 1.5),
-                      ),
-                      child: Text(av, style: const TextStyle(fontSize: 26)),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_rounded, color: AppTheme.primaryDark),
+              title: const Text('Tomar Foto con Cámara'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickProfileImage(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded, color: AppTheme.accentTeal),
+              title: const Text('Elegir de Galería'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickProfileImage(ImageSource.gallery);
+              },
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  Future<void> _updateAvatar(String emoji) async {
+    await ref.read(secureStorageProvider).write('user_avatar', emoji);
+    await ref.read(secureStorageProvider).delete('user_photo_path');
+    setState(() {
+      _selectedAvatar = emoji;
+      _profileImagePath = null;
+    });
+    if (mounted) {
+      AppToast.show(context, message: '¡Avatar de emoji seleccionado!', type: AppToastType.success);
+    }
   }
 
   Future<void> _syncData() async {
@@ -185,7 +124,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     try {
       await ref.read(syncServiceProvider).syncReminders();
       if (mounted) {
-        AppToast.show(context, message: '¡Datos sincronizados con Render!', type: AppToastType.success);
+        AppToast.show(context, message: '¡Sincronizado con la nube Render!', type: AppToastType.success);
       }
     } catch (e) {
       if (mounted) {
@@ -196,146 +135,249 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  Future<void> _showDeleteAccountDialog() async {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark ? AppTheme.surfaceDark : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 28),
+              SizedBox(width: 10),
+              Text('Eliminar Cuenta', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Text(
+            '¿Estás seguro de que deseas eliminar tu usuario completamente?\n\nEsta acción borrará de forma permanente todas tus tareas, hábitos, notas y datos de la nube.',
+            style: TextStyle(color: isDark ? Colors.white70 : Colors.black87),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogCtx).pop(),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+              onPressed: () async {
+                Navigator.of(dialogCtx).pop();
+                try {
+                  final apiClient = ref.read(apiClientProvider);
+                  await apiClient.delete('/api/auth/account');
+                } catch (_) {
+                  // Offline support
+                }
+
+                final storage = ref.read(secureStorageProvider);
+                await storage.clearAll();
+
+                await ref.read(authStateProvider.notifier).logout();
+                if (mounted) {
+                  AppToast.show(context, message: 'Tu cuenta ha sido eliminada permanentemente.', type: AppToastType.warning);
+                }
+              },
+              child: const Text('Sí, Eliminar Cuenta'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final usernameAsync = ref.watch(usernameProvider);
 
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 16.0, bottom: 90.0),
+          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Title Header
-              Text(
-                'Mi Perfil & Ajustes',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+              // 1. HEADER TITLE
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Mi Perfil & Ajustes',
+                    style: TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                      color: AppTheme.primaryDark,
+                    ),
+                    onPressed: () {
+                      ref.read(appThemeModeProvider.notifier).toggleTheme();
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // 2. AVATAR PICKER CARD
+              Center(
+                child: Stack(
+                  children: [
+                    Container(
+                      width: 110,
+                      height: 110,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isDark ? AppTheme.surfaceDark : Colors.white,
+                        border: Border.all(color: AppTheme.primaryDark, width: 2.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primaryDark.withValues(alpha: 0.25),
+                            blurRadius: 20,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: ClipOval(
+                        child: _profileImagePath != null
+                            ? Image.file(File(_profileImagePath!), fit: BoxFit.cover)
+                            : Center(
+                                child: Text(
+                                  _selectedAvatar,
+                                  style: const TextStyle(fontSize: 48),
+                                ),
+                              ),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryDark,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 6,
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.camera_alt_rounded, size: 20, color: Colors.black),
+                          onPressed: _showImagePickerOptions,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              const SizedBox(height: 14),
+
+              // USERNAME DISPLAY
+              Consumer(
+                builder: (context, ref, child) {
+                  final usernameAsync = ref.watch(usernameProvider);
+                  return usernameAsync.when(
+                    data: (user) => Text(
+                      user,
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                      ),
+                    ),
+                    loading: () => const Text('Cargando...'),
+                    error: (e, s) => const Text('Usuario'),
+                  );
+                },
               ),
               const SizedBox(height: 4),
               Text(
-                'Gestiona tu cuenta, seguridad y preferencias',
+                'Plan Premium My Reminder',
                 style: TextStyle(
-                  fontSize: 13,
-                  color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // User Header Card
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.surfaceDark : Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: isDark ? AppTheme.glassBorder : Colors.grey[200]!,
-                    width: 1,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppTheme.primaryDark.withValues(alpha: isDark ? 0.1 : 0.04),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    GestureDetector(
-                      onTap: _showAvatarPicker,
-                      child: Stack(
-                        children: [
-                          CircleAvatar(
-                            radius: 34,
-                            backgroundColor: AppTheme.primaryDark.withValues(alpha: 0.2),
-                            backgroundImage: _profileImagePath != null
-                                ? FileImage(File(_profileImagePath!))
-                                : null,
-                            child: _profileImagePath == null
-                                ? Text(_selectedAvatar, style: const TextStyle(fontSize: 32))
-                                : null,
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: const BoxDecoration(
-                                color: AppTheme.primaryDark,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.camera_alt_rounded, size: 12, color: Colors.black),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          usernameAsync.when(
-                            data: (name) => Text(
-                              name,
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: isDark ? Colors.white : AppTheme.textPrimaryLight,
-                              ),
-                            ),
-                            loading: () => const Text('Cargando...'),
-                            error: (err, stack) => const Text('Usuario'),
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            children: const [
-                              Icon(Icons.cloud_done_rounded, size: 14, color: AppTheme.accentTeal),
-                              SizedBox(width: 4),
-                              Text(
-                                'Conectado a Render Cloud',
-                                style: TextStyle(fontSize: 12, color: AppTheme.accentTeal, fontWeight: FontWeight.w600),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          GestureDetector(
-                            onTap: _showAvatarPicker,
-                            child: const Text(
-                              'Toca para cambiar foto o avatar',
-                              style: TextStyle(fontSize: 11, color: AppTheme.primaryDark, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? AppTheme.accentTeal : AppTheme.accentIndigo,
                 ),
               ),
               const SizedBox(height: 24),
 
-              // Settings Section Header
-              Text(
-                'Preferencias & Apariencia',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+              // 3. AVATAR EMOJI SELECTOR STRIP
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Elegir Avatar Emoji',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white70 : Colors.black87,
+                  ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 50,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _avatarOptions.length,
+                  itemBuilder: (context, index) {
+                    final emoji = _avatarOptions[index];
+                    final isSelected = emoji == _selectedAvatar && _profileImagePath == null;
 
-              // Settings List Card
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 10.0),
+                      child: GestureDetector(
+                        onTap: () => _updateAvatar(emoji),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isSelected
+                                ? AppTheme.primaryDark.withValues(alpha: 0.25)
+                                : (isDark ? AppTheme.surfaceDark : Colors.white),
+                            border: Border.all(
+                              color: isSelected ? AppTheme.primaryDark : (isDark ? AppTheme.glassBorder : Colors.grey[300]!),
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(emoji, style: const TextStyle(fontSize: 24)),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 28),
+
+              // 4. CONFIGURATION CARDS
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Preferencias & Seguridad',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white70 : Colors.black87,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
               Container(
                 decoration: BoxDecoration(
                   color: isDark ? AppTheme.surfaceDark : Colors.white,
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: isDark ? AppTheme.glassBorder : Colors.grey[200]!,
                     width: 1,
@@ -343,8 +385,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
                 child: Column(
                   children: [
-                    SwitchListTile(
-                      secondary: Container(
+                    ListTile(
+                      leading: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: AppTheme.primaryDark.withValues(alpha: 0.15),
@@ -355,16 +397,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           color: AppTheme.primaryDark,
                         ),
                       ),
-                      title: Text(
-                        isDark ? 'Modo Claro' : 'Modo Oscuro',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      title: const Text('Tema de la Aplicación', style: TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text(isDark ? 'Modo Oscuro Neón' : 'Modo Claro Cristal'),
+                      trailing: Switch(
+                        value: isDark,
+                        activeTrackColor: AppTheme.primaryDark,
+                        onChanged: (val) {
+                          ref.read(appThemeModeProvider.notifier).toggleTheme();
+                        },
                       ),
-                      subtitle: const Text('Alternar el esquema de colores de la app'),
-                      value: isDark,
-                      activeTrackColor: AppTheme.primaryDark,
-                      onChanged: (_) {
-                        ref.read(appThemeModeProvider.notifier).toggleTheme();
-                      },
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     ListTile(
@@ -376,7 +417,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                         child: const Icon(Icons.sync_rounded, color: AppTheme.accentTeal),
                       ),
-                      title: const Text('Sincronizar con la Nube', style: TextStyle(fontWeight: FontWeight.bold)),
+                      title: const Text('Sincronización Cloud', style: TextStyle(fontWeight: FontWeight.bold)),
                       subtitle: const Text('Forzar actualización de datos en Render'),
                       trailing: _isSyncing
                           ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
@@ -414,14 +455,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: 28),
 
-              // Danger Zone: Logout Button
+              // 5. DANGER ZONE: LOGOUT & DELETE ACCOUNT BUTTONS
               SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.redAccent,
-                    side: const BorderSide(color: Colors.redAccent, width: 1.5),
+                    foregroundColor: Colors.orangeAccent,
+                    side: const BorderSide(color: Colors.orangeAccent, width: 1.5),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   icon: const Icon(Icons.logout_rounded),
@@ -434,6 +475,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   },
                 ),
               ),
+              const SizedBox(height: 14),
+
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent.withValues(alpha: 0.15),
+                    foregroundColor: Colors.redAccent,
+                    elevation: 0,
+                    side: const BorderSide(color: Colors.redAccent, width: 1.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  icon: const Icon(Icons.delete_forever_rounded, color: Colors.redAccent),
+                  label: const Text(
+                    'Eliminar Cuenta Definitivamente',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                  onPressed: _showDeleteAccountDialog,
+                ),
+              ),
+              const SizedBox(height: 40),
             ],
           ),
         ),

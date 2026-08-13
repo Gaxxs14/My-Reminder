@@ -64,6 +64,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -97,22 +98,32 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             ),
           ),
           SafeArea(
-            child: Center(
+            child: SizedBox(
+              width: double.infinity,
+              height: double.infinity,
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
                 child: Form(
                   key: _formKey,
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: AppTheme.surfaceDark,
                           border: Border.all(color: AppTheme.glassBorder, width: 1.5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.primaryDark.withValues(alpha: 0.2),
+                              blurRadius: 20,
+                              spreadRadius: 2,
+                            ),
+                          ],
                         ),
-                        child: const GaxxsIconMark(size: 44),
+                        child: const GaxxsIconMark(size: 48),
                       ),
                       const SizedBox(height: 16),
                       Text(
@@ -129,17 +140,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         'Únete a My Reminder y sincroniza todo en la nube',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 13,
                           color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
                         ),
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 24),
 
                       // Glass Card Form Container
                       Container(
-                        padding: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: isDark ? AppTheme.surfaceDark.withValues(alpha: 0.85) : Colors.white,
+                          color: isDark ? AppTheme.surfaceDark.withValues(alpha: 0.9) : Colors.white,
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
                             color: isDark ? AppTheme.glassBorder : Colors.grey[200]!,
@@ -166,7 +177,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 14),
                             AppTextField(
                               controller: _passController,
                               labelText: 'Contraseña',
@@ -178,7 +189,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 16),
+                            const SizedBox(height: 14),
                             AppTextField(
                               controller: _confirmPassController,
                               labelText: 'Confirmar Contraseña',
@@ -193,14 +204,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 24),
 
                       if (_isLoading)
-                        const GaxxsLoader(showBrandName: false, size: 48)
+                        const GaxxsLoader(showBrandName: false, size: 44)
                       else
                         Container(
                           width: double.infinity,
-                          height: 56,
+                          height: 54,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(18),
                             gradient: const LinearGradient(
@@ -233,7 +244,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             ),
                           ),
                         ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 20),
 
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
@@ -253,6 +264,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ),
                         ),
                       ),
+                      const SizedBox(height: 32),
                     ],
                   ),
                 ),
