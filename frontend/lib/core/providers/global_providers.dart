@@ -91,26 +91,26 @@ class AuthStateNotifier extends StateNotifier<bool> {
     state = hasSession;
   }
 
-  Future<bool> register({
+  Future<AuthResult> register({
     required String username,
     required String password,
   }) async {
-    final success = await _authService.register(username: username, password: password);
-    if (success) {
+    final result = await _authService.register(username: username, password: password);
+    if (result.success) {
       state = true;
     }
-    return success;
+    return result;
   }
 
-  Future<bool> loginWithPassword({
+  Future<AuthResult> loginWithPassword({
     required String username,
     required String password,
   }) async {
-    final success = await _authService.login(username: username, password: password);
-    if (success) {
+    final result = await _authService.login(username: username, password: password);
+    if (result.success) {
       state = true;
     }
-    return success;
+    return result;
   }
 
   Future<bool> loginWithBiometrics() async {

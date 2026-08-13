@@ -33,20 +33,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final success = await ref.read(authStateProvider.notifier).register(
+      final result = await ref.read(authStateProvider.notifier).register(
             username: _userController.text.trim(),
             password: _passController.text,
           );
 
       if (mounted) {
-        if (success) {
+        if (result.success) {
           AppToast.show(context, message: '¡Cuenta creada con éxito!', type: AppToastType.success);
-          // Pop screens back to root which will redirect to Home automatically due to Riverpod state
           Navigator.of(context).popUntil((route) => route.isFirst);
         } else {
           AppToast.show(
             context,
-            message: 'El usuario ya existe o hubo un error.',
+            message: result.errorMessage ?? 'Error al registrar usuario.',
             type: AppToastType.error,
           );
         }

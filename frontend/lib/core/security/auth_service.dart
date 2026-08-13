@@ -4,6 +4,12 @@ import '../network/api_client.dart';
 import 'biometric_service.dart';
 import 'secure_storage_service.dart';
 
+class AuthResult {
+  final bool success;
+  final String? errorMessage;
+  AuthResult({required this.success, this.errorMessage});
+}
+
 class AuthService {
   final SecureStorageService _secureStorage;
   final BiometricService _biometricService;
@@ -36,7 +42,7 @@ class AuthService {
   }
 
   // Register user on C# backend and store JWT token
-  Future<bool> register({
+  Future<AuthResult> register({
     required String username,
     required String password,
   }) async {
@@ -58,19 +64,31 @@ class AuthService {
           
           // Initialize local DB on success
           await _dbHelper.initDatabase();
-          return true;
+          return AuthResult(success: true);
         }
       }
-      return false;
-    } on DioException catch (_) {
-      return false;
-    } catch (_) {
-      return false;
+      return AuthResult(success: false, errorMessage: 'Respuesta inválida del servidor');
+    } on DioException catch (e) {
+      if (e.response != null) {
+        final data = e.response?.data;
+        if (data is String && data.isNotEmpty) {
+          return AuthResult(success: false, errorMessage: data);
+        }
+        if (data is Map && data.containsKey('message')) {
+          return AuthResult(success: false, errorMessage: data['message'].toString());
+        }
+        if (e.response?.statusCode == 409) {
+          return AuthResult(success: false, errorMessage: 'El nombre de usuario ya está registrado.');
+        }
+      }
+      return AuthResult(success: false, errorMessage: 'Error de red o servidor (Render): ${e.message ?? e.toString()}');
+    } catch (e) {
+      return AuthResult(success: false, errorMessage: 'Error inesperado: $e');
     }
   }
 
   // Login user on C# backend and store JWT token
-  Future<bool> login({
+  Future<AuthResult> login({
     required String username,
     required String password,
   }) async {
@@ -92,14 +110,26 @@ class AuthService {
           
           // Initialize local DB on success
           await _dbHelper.initDatabase();
-          return true;
+          return AuthResult(success: true);
         }
       }
-      return false;
-    } on DioException catch (_) {
-      return false;
-    } catch (_) {
-      return false;
+      return AuthResult(success: false, errorMessage: 'Respuesta inválida del servidor');
+    } on DioException catch (e) {
+      if (e.response != null) {
+        final data = e.response?.data;
+        if (data is String && data.isNotEmpty) {
+          return AuthResult(success: false, errorMessage: data);
+        }
+        if (data is Map && data.containsKey('message')) {
+          return AuthResult(success: false, errorMessage: data['message'].toString());
+        }
+        if (e.response?.statusCode == 401) {
+          return AuthResult(success: false, errorMessage: 'Usuario o contraseña incorrectos.');
+        }
+      }
+      return AuthResult(success: false, errorMessage: 'Error de conexión (Render): ${e.message ?? e.toString()}');
+    } catch (e) {
+      return AuthResult(success: false, errorMessage: 'Error inesperado: $e');
     }
   }
 

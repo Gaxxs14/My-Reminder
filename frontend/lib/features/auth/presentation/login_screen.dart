@@ -69,16 +69,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final success = await ref.read(authStateProvider.notifier).loginWithPassword(
+      final result = await ref.read(authStateProvider.notifier).loginWithPassword(
             username: _userController.text.trim(),
             password: _passController.text,
           );
 
       if (mounted) {
-        if (success) {
+        if (result.success) {
           AppToast.show(context, message: '¡Bienvenido de nuevo!', type: AppToastType.success);
         } else {
-          AppToast.show(context, message: 'Usuario o contraseña incorrectos.', type: AppToastType.error);
+          AppToast.show(
+            context,
+            message: result.errorMessage ?? 'Usuario o contraseña incorrectos.',
+            type: AppToastType.error,
+          );
         }
       }
     } catch (e) {
