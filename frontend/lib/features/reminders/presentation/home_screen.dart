@@ -11,6 +11,7 @@ import '../../assistant/presentation/assistant_screen.dart';
 import '../../habits/presentation/habits_screen.dart';
 import '../../notes/presentation/notes_screen.dart';
 import '../../workspaces/presentation/workspaces_screen.dart';
+import '../../profile/presentation/profile_screen.dart';
 import '../../workspaces/presentation/workspaces_provider.dart';
 import '../../workspaces/data/workspace_model.dart';
 import 'dart:convert';
@@ -304,6 +305,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       const HabitsScreen(),
       const NotesScreen(),
       const WorkspacesScreen(),
+      const ProfileScreen(),
     ];
 
     return Scaffold(
@@ -337,7 +339,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           NavigationDestination(
             icon: Icon(Icons.groups_outlined),
             selectedIcon: Icon(Icons.groups_rounded, color: AppTheme.primaryDark),
-            label: 'Compartido',
+            label: 'Equipo',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline_rounded),
+            selectedIcon: Icon(Icons.person_rounded, color: AppTheme.primaryDark),
+            label: 'Perfil',
           ),
         ],
       ),
