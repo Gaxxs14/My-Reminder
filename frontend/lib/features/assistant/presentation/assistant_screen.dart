@@ -37,6 +37,8 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
   bool _speechEnabled = false;
   bool _isListening = false;
   bool _isLoading = false;
+  bool _isSending = false;
+  bool _isSpeakerEnabled = true;
   String _lastWords = '';
   
   final List<MessageItem> _messages = [];
@@ -52,7 +54,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
     // Add welcome message from Assistant
     _messages.add(
       MessageItem(
-        text: '¡Hola! Soy tu asistente de My Reminder. Toca el micrófono para hablar o escribe tu mensaje abajo, por ejemplo: "Recuérdame pagar el servicio mañana a las 4 PM".',
+        text: '¡Hola! Soy tu asistente de My Reminder. Toca el micrófono para hablar o escribe tu mensaje abajo, por ejemplo: "Recuérdame comprar fruta mañana a las 5 PM".',
         isUser: false,
       ),
     );
@@ -94,10 +96,8 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
         },
         onStatus: (val) {
           debugPrint('STT Status: $val');
-          if (val == 'done' || val == 'notListening') {
-            if (mounted && _isListening) {
-              _stopListening();
-            }
+          if ((val == 'done' || val == 'notListening') && _isListening) {
+            _stopListeningAndSend();
           }
         },
       );
@@ -125,6 +125,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
 
   // Speak out assistant responses
   Future<void> _speak(String text) async {
+    if (!_isSpeakerEnabled) return;
     await _flutterTts.stop();
     await _flutterTts.speak(text);
   }
@@ -132,7 +133,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
   // Toggle listening state cleanly (Tap to start / Tap to stop)
   Future<void> _toggleListening() async {
     if (_isListening) {
-      _stopListening();
+      _stopListeningAndSend();
     } else {
       if (!_speechEnabled) {
         await _initSpeech();
@@ -140,7 +141,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
 
       if (!_speechEnabled) {
         if (mounted) {
-          AppToast.show(context, message: 'Se requiere permiso de micrófono para usar la voz.', type: AppToastType.warning);
+          AppToast.show(context, message: 'Se requiere permiso de micrófono para escuchar tu voz.', type: AppToastType.warning);
         }
         return;
       }
@@ -157,19 +158,23 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
             setState(() {
               _lastWords = result.recognizedWords;
             });
-            if (result.finalResult && _lastWords.trim().isNotEmpty) {
-              _stopListening();
-            }
           }
         },
-        listenOptions: SpeechListenOptions(localeId: 'es_US', partialResults: true),
+        listenOptions: SpeechListenOptions(
+          localeId: 'es_US',
+          partialResults: true,
+          listenFor: const Duration(seconds: 30),
+          pauseFor: const Duration(seconds: 4),
+        ),
       );
     }
   }
 
-  // Stop capturing audio and send recognized query
-  void _stopListening() async {
+  // Stop capturing audio and trigger single message send
+  void _stopListeningAndSend() async {
+    if (!_isListening && _isSending) return;
     await _speechToText.stop();
+    
     if (mounted) {
       setState(() {
         _isListening = false;
@@ -177,18 +182,20 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
     }
 
     final textToSend = _lastWords.trim();
+    _lastWords = '';
     if (textToSend.isNotEmpty) {
-      _sendMessage(textToSend);
+      _sendMessage(textToSend, isVoiceInput: true);
     }
   }
 
   // Send message to C# backend Gemini integration
-  Future<void> _sendMessage(String text) async {
+  Future<void> _sendMessage(String text, {required bool isVoiceInput}) async {
     final queryText = text.trim();
-    if (queryText.isEmpty) return;
+    if (queryText.isEmpty || _isSending) return;
 
     _textController.clear();
     setState(() {
+      _isSending = true;
       _messages.add(MessageItem(text: queryText, isUser: true));
       _isLoading = true;
     });
@@ -215,8 +222,10 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
         }
         _scrollToBottom();
         
-        // Speak assistant response aloud
-        await _speak(speechResponse);
+        // Speak assistant response aloud ONLY if user spoke by voice and speaker is enabled
+        if (isVoiceInput && _isSpeakerEnabled) {
+          await _speak(speechResponse);
+        }
 
         // If backend created a reminder, save it locally in SQLite
         if (action == 'create' && data['createdReminder'] != null) {
@@ -242,20 +251,20 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
       }
     } catch (e) {
       if (mounted) {
-        final fallbackMsg = '¡Hola! Entendido. He anotado tu mensaje: "$queryText". Cuando vuelva la conexión a la nube agendaremos más detalles.';
+        final fallbackMsg = 'Entendido. He registrado tu consulta: "$queryText".';
         setState(() {
-          _messages.add(MessageItem(
-            text: fallbackMsg,
-            isUser: false,
-          ));
+          _messages.add(MessageItem(text: fallbackMsg, isUser: false));
         });
-        _speak(fallbackMsg);
-        AppToast.show(context, message: 'Modo Asistente fuera de línea activado.', type: AppToastType.info);
+        if (isVoiceInput && _isSpeakerEnabled) {
+          _speak(fallbackMsg);
+        }
+        AppToast.show(context, message: 'Modo fuera de línea activado.', type: AppToastType.info);
       }
     } finally {
       if (mounted) {
         setState(() {
           _isLoading = false;
+          _isSending = false;
         });
       }
       _scrollToBottom();
@@ -280,13 +289,35 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Asistente IA por Voz'),
+        title: const Text('Asistente IA de Voz'),
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => Navigator.of(context).pop(),
         ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _isSpeakerEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+              color: _isSpeakerEnabled ? AppTheme.primaryDark : Colors.grey,
+            ),
+            tooltip: _isSpeakerEnabled ? 'Audio respuesta activado' : 'Audio respuesta desactivado',
+            onPressed: () {
+              setState(() {
+                _isSpeakerEnabled = !_isSpeakerEnabled;
+              });
+              if (!_isSpeakerEnabled) {
+                _flutterTts.stop();
+              }
+              AppToast.show(
+                context,
+                message: _isSpeakerEnabled ? 'Audio de respuesta ACTIVADO' : 'Audio de respuesta DESACTIVADO',
+                type: AppToastType.info,
+              );
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
@@ -363,13 +394,17 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        _lastWords.isEmpty ? 'Escuchando tu voz... Habla ahora' : _lastWords,
+                        _lastWords.isEmpty ? 'Escuchando tu voz... Toca el micro al terminar' : _lastWords,
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                           color: isDark ? Colors.white : Colors.black87,
                         ),
                       ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.send_rounded, color: Colors.redAccent),
+                      onPressed: _stopListeningAndSend,
                     ),
                   ],
                 ),
@@ -394,8 +429,9 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
                     child: TextField(
                       controller: _textController,
                       style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                      onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
-                        hintText: 'Escribe o presiona el micro...',
+                        hintText: 'Escribe un mensaje...',
                         hintStyle: const TextStyle(fontSize: 14, color: Colors.grey),
                         filled: true,
                         fillColor: isDark ? AppTheme.surfaceDarkElevated : Colors.grey[100],
@@ -405,19 +441,19 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
                           borderSide: BorderSide.none,
                         ),
                       ),
-                      onSubmitted: (val) => _sendMessage(val),
+                      onSubmitted: (val) => _sendMessage(val, isVoiceInput: false),
                     ),
                   ),
                   const SizedBox(width: 8),
 
-                  // Send text button (if text entered) or Mic button
+                  // Send text button (if typing text) or Mic button
                   _textController.text.trim().isNotEmpty
                       ? CircleAvatar(
                           radius: 24,
                           backgroundColor: AppTheme.primaryDark,
                           child: IconButton(
                             icon: const Icon(Icons.send_rounded, color: Colors.black, size: 20),
-                            onPressed: () => _sendMessage(_textController.text),
+                            onPressed: () => _sendMessage(_textController.text, isVoiceInput: false),
                           ),
                         )
                       : GestureDetector(

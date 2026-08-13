@@ -72,14 +72,27 @@ namespace MyReminder.API.Controllers
                 using var doc = JsonDocument.Parse(geminiJsonResult);
                 var root = doc.RootElement;
 
-                var action = root.GetProperty("action").GetString();
-                var speechResponse = root.GetProperty("speechResponse").GetString() ?? "Entendido.";
+                string action = "talk";
+                if (root.TryGetProperty("action", out var actionNode))
+                {
+                    action = actionNode.GetString() ?? "talk";
+                }
+
+                string speechResponse = "¡Hola! Sí, te escucho perfectamente. ¿En qué puedo ayudarte hoy?";
+                if (root.TryGetProperty("speechResponse", out var speechNode) && speechNode.ValueKind != JsonValueKind.Null)
+                {
+                    speechResponse = speechNode.GetString() ?? speechResponse;
+                }
 
                 Reminder? createdReminder = null;
 
                 if (action == "create")
                 {
-                    var title = root.GetProperty("title").GetString() ?? "Sin título";
+                    var title = "Recordatorio";
+                    if (root.TryGetProperty("title", out var titleNode) && titleNode.ValueKind != JsonValueKind.Null)
+                    {
+                        title = titleNode.GetString() ?? "Recordatorio";
+                    }
                     
                     string? description = null;
                     if (root.TryGetProperty("description", out var descNode) && descNode.ValueKind != JsonValueKind.Null)
@@ -88,13 +101,20 @@ namespace MyReminder.API.Controllers
                     }
 
                     var category = "General";
-                    if (root.TryGetProperty("category", out var catNode))
+                    if (root.TryGetProperty("category", out var catNode) && catNode.ValueKind != JsonValueKind.Null)
                     {
                         category = catNode.GetString() ?? "General";
                     }
 
-                    var dueDateStr = root.GetProperty("dueDate").GetString();
-                    var dueDate = DateTime.TryParse(dueDateStr, out var parsedDate) ? parsedDate : DateTime.Now.AddHours(1);
+                    var dueDate = DateTime.Now.AddHours(1);
+                    if (root.TryGetProperty("dueDate", out var dateNode) && dateNode.ValueKind != JsonValueKind.Null)
+                    {
+                        var dueDateStr = dateNode.GetString();
+                        if (DateTime.TryParse(dueDateStr, out var parsedDate))
+                        {
+                            dueDate = parsedDate;
+                        }
+                    }
 
                     // Create the new reminder in Cloud DB automatically
                     createdReminder = new Reminder
@@ -164,7 +184,11 @@ namespace MyReminder.API.Controllers
                 using var doc = JsonDocument.Parse(geminiJson);
                 var root = doc.RootElement;
 
-                var title = root.GetProperty("title").GetString() ?? "Sin título (OCR)";
+                var title = "Sin título (OCR)";
+                if (root.TryGetProperty("title", out var titleNode) && titleNode.ValueKind != JsonValueKind.Null)
+                {
+                    title = titleNode.GetString() ?? "Sin título (OCR)";
+                }
 
                 string? description = null;
                 if (root.TryGetProperty("description", out var descNode) && descNode.ValueKind != JsonValueKind.Null)
@@ -173,13 +197,20 @@ namespace MyReminder.API.Controllers
                 }
 
                 var category = "General";
-                if (root.TryGetProperty("category", out var catNode))
+                if (root.TryGetProperty("category", out var catNode) && catNode.ValueKind != JsonValueKind.Null)
                 {
                     category = catNode.GetString() ?? "General";
                 }
 
-                var dueDateStr = root.GetProperty("dueDate").GetString();
-                var dueDate = DateTime.TryParse(dueDateStr, out var parsedDate) ? parsedDate : DateTime.Now.AddDays(1);
+                var dueDate = DateTime.Now.AddDays(1);
+                if (root.TryGetProperty("dueDate", out var dateNode) && dateNode.ValueKind != JsonValueKind.Null)
+                {
+                    var dueDateStr = dateNode.GetString();
+                    if (DateTime.TryParse(dueDateStr, out var parsedDate))
+                    {
+                        dueDate = parsedDate;
+                    }
+                }
 
                 var newReminder = new Reminder
                 {
