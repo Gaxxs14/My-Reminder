@@ -126,7 +126,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Únete a My-Reminder y sincroniza todo en la nube',
+                        'Únete a MyReminder y sincroniza todo en la nube',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
