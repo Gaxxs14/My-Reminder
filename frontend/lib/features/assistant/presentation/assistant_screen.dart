@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../core/providers/global_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_toast.dart';
@@ -31,6 +32,7 @@ class AssistantScreen extends ConsumerStatefulWidget {
 class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTickerProviderStateMixin {
   final SpeechToText _speechToText = SpeechToText();
   final FlutterTts _flutterTts = FlutterTts();
+  final TextEditingController _textController = TextEditingController();
   
   bool _speechEnabled = false;
   bool _isListening = false;
@@ -50,12 +52,12 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
     // Add welcome message from Assistant
     _messages.add(
       MessageItem(
-        text: '¡Hola! Soy tu asistente de My-Reminder. Presiona el micrófono y dime qué deseas agendar, por ejemplo: "Recuérdame comprar pan mañana a las 5 de la tarde".',
+        text: '¡Hola! Soy tu asistente de My Reminder. Toca el micrófono para hablar o escribe tu mensaje abajo, por ejemplo: "Recuérdame pagar el servicio mañana a las 4 PM".',
         isUser: false,
       ),
     );
 
-    // Pulse animation controller for the microphone glow
+    // Pulse animation controller for microphone glow
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 1),
@@ -66,17 +68,38 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
   void dispose() {
     _speechToText.stop();
     _flutterTts.stop();
+    _textController.dispose();
     _scrollController.dispose();
     _pulseController.dispose();
     super.dispose();
   }
 
-  // Initialize Speech to Text
+  // Initialize Speech to Text with runtime permission check
   Future<void> _initSpeech() async {
     try {
+      final micStatus = await Permission.microphone.request();
+      if (!micStatus.isGranted) {
+        if (mounted) {
+          setState(() => _speechEnabled = false);
+        }
+        return;
+      }
+
       final available = await _speechToText.initialize(
-        onError: (val) => debugPrint('STT Error: $val'),
-        onStatus: (val) => debugPrint('STT Status: $val'),
+        onError: (val) {
+          debugPrint('STT Error: $val');
+          if (mounted && _isListening) {
+            setState(() => _isListening = false);
+          }
+        },
+        onStatus: (val) {
+          debugPrint('STT Status: $val');
+          if (val == 'done' || val == 'notListening') {
+            if (mounted && _isListening) {
+              _stopListening();
+            }
+          }
+        },
       );
       if (mounted) {
         setState(() {
@@ -91,7 +114,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
   // Initialize Text to Speech
   Future<void> _initTts() async {
     try {
-      await _flutterTts.setLanguage('es');
+      await _flutterTts.setLanguage('es-ES');
       await _flutterTts.setSpeechRate(0.5);
       await _flutterTts.setVolume(1.0);
       await _flutterTts.setPitch(1.0);
@@ -106,45 +129,67 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
     await _flutterTts.speak(text);
   }
 
-  // Start capturing audio
-  void _startListening() async {
-    if (!_speechEnabled) {
-      AppToast.show(context, message: 'El micrófono no está habilitado.', type: AppToastType.warning);
-      return;
-    }
-    
-    await _flutterTts.stop();
-    setState(() {
-      _isListening = true;
-      _lastWords = '';
-    });
+  // Toggle listening state cleanly (Tap to start / Tap to stop)
+  Future<void> _toggleListening() async {
+    if (_isListening) {
+      _stopListening();
+    } else {
+      if (!_speechEnabled) {
+        await _initSpeech();
+      }
 
-    await _speechToText.listen(
-      onResult: (result) {
-        setState(() {
-          _lastWords = result.recognizedWords;
-        });
-      },
-      listenOptions: SpeechListenOptions(localeId: 'es_US'),
-    );
+      if (!_speechEnabled) {
+        if (mounted) {
+          AppToast.show(context, message: 'Se requiere permiso de micrófono para usar la voz.', type: AppToastType.warning);
+        }
+        return;
+      }
+
+      await _flutterTts.stop();
+      setState(() {
+        _isListening = true;
+        _lastWords = '';
+      });
+
+      await _speechToText.listen(
+        onResult: (result) {
+          if (mounted) {
+            setState(() {
+              _lastWords = result.recognizedWords;
+            });
+            if (result.finalResult && _lastWords.trim().isNotEmpty) {
+              _stopListening();
+            }
+          }
+        },
+        listenOptions: SpeechListenOptions(localeId: 'es_US', partialResults: true),
+      );
+    }
   }
 
-  // Stop capturing audio and process request
+  // Stop capturing audio and send recognized query
   void _stopListening() async {
     await _speechToText.stop();
-    setState(() {
-      _isListening = false;
-    });
+    if (mounted) {
+      setState(() {
+        _isListening = false;
+      });
+    }
 
-    if (_lastWords.trim().isNotEmpty) {
-      _sendMessage(_lastWords);
+    final textToSend = _lastWords.trim();
+    if (textToSend.isNotEmpty) {
+      _sendMessage(textToSend);
     }
   }
 
   // Send message to C# backend Gemini integration
   Future<void> _sendMessage(String text) async {
+    final queryText = text.trim();
+    if (queryText.isEmpty) return;
+
+    _textController.clear();
     setState(() {
-      _messages.add(MessageItem(text: text, isUser: true));
+      _messages.add(MessageItem(text: queryText, isUser: true));
       _isLoading = true;
     });
     _scrollToBottom();
@@ -155,7 +200,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
       // POST user text to backend C# AI Assistant endpoint
       final response = await apiClient.post(
         '/api/assistant/talk',
-        data: {'message': text},
+        data: {'message': queryText},
       );
 
       if (response.statusCode == 200) {
@@ -163,15 +208,17 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
         final String speechResponse = data['speechResponse'] as String? ?? 'Entendido.';
         final String action = data['action'] as String? ?? 'talk';
 
-        setState(() {
-          _messages.add(MessageItem(text: speechResponse, isUser: false));
-        });
+        if (mounted) {
+          setState(() {
+            _messages.add(MessageItem(text: speechResponse, isUser: false));
+          });
+        }
         _scrollToBottom();
         
         // Speak assistant response aloud
         await _speak(speechResponse);
 
-        // If the backend automatically created a reminder in PostgreSQL, save it locally in SQLite
+        // If backend created a reminder, save it locally in SQLite
         if (action == 'create' && data['createdReminder'] != null) {
           final reminderJson = Map<String, dynamic>.from(data['createdReminder'] as Map);
           
@@ -182,11 +229,10 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
             category: reminderJson['category'] as String? ?? 'General',
             dueDate: DateTime.parse(reminderJson['dueDate'] as String).toLocal(),
             status: reminderJson['status'] as String? ?? 'pending',
-            isSynced: true, // It is already saved in the cloud DB
+            isSynced: true,
             createdAt: DateTime.parse(reminderJson['createdAt'] as String).toLocal(),
           );
 
-          // Insert into local SQLite database cache
           await ref.read(remindersProvider.notifier).addReminder(localReminder);
           
           if (mounted) {
@@ -232,11 +278,11 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Asistente de Voz'),
+        title: const Text('Asistente IA por Voz'),
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -257,18 +303,23 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
                       alignment: msg.isUser ? Alignment.centerRight : Alignment.centerLeft,
                       child: Container(
                         constraints: BoxConstraints(
-                          maxWidth: MediaQuery.of(context).size.width * 0.75,
+                          maxWidth: MediaQuery.of(context).size.width * 0.78,
                         ),
                         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                         decoration: BoxDecoration(
                           color: msg.isUser
-                              ? (isDark ? AppTheme.primaryDark : AppTheme.primaryLight)
+                              ? AppTheme.primaryDark
                               : (isDark ? AppTheme.surfaceDark : Colors.grey[200]),
                           borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(16),
-                            topRight: const Radius.circular(16),
-                            bottomLeft: msg.isUser ? const Radius.circular(16) : Radius.zero,
-                            bottomRight: msg.isUser ? Radius.zero : const Radius.circular(16),
+                            topLeft: const Radius.circular(18),
+                            topRight: const Radius.circular(18),
+                            bottomLeft: msg.isUser ? const Radius.circular(18) : Radius.zero,
+                            bottomRight: msg.isUser ? Radius.zero : const Radius.circular(18),
+                          ),
+                          border: Border.all(
+                            color: msg.isUser
+                                ? AppTheme.primaryDark
+                                : (isDark ? AppTheme.glassBorder : Colors.transparent),
                           ),
                         ),
                         child: Text(
@@ -297,24 +348,24 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
             // Live speech transcription bar
             if (_isListening)
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-                padding: const EdgeInsets.all(12.0),
+                margin: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
                 decoration: BoxDecoration(
-                  color: (isDark ? AppTheme.surfaceDark : Colors.grey[100])!.withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.primaryDark.withValues(alpha: 0.3)),
+                  color: isDark ? AppTheme.surfaceDark : Colors.grey[100],
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.mic, color: Colors.redAccent, size: 20),
+                    const Icon(Icons.graphic_eq_rounded, color: Colors.redAccent, size: 22),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        _lastWords.isEmpty ? 'Escuchando tu voz...' : _lastWords,
+                        _lastWords.isEmpty ? 'Escuchando tu voz... Habla ahora' : _lastWords,
                         style: TextStyle(
                           fontSize: 14,
-                          fontStyle: FontStyle.italic,
-                          color: isDark ? Colors.white70 : Colors.black87,
+                          fontWeight: FontWeight.w500,
+                          color: isDark ? Colors.white : Colors.black87,
                         ),
                       ),
                     ),
@@ -322,59 +373,86 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
                 ),
               ),
 
-            // Pulsing Microphone Panel
+            // INPUT & VOICE CONTROL PANEL
             Container(
-              padding: const EdgeInsets.symmetric(vertical: 24.0),
-              child: Center(
-                child: Column(
-                  children: [
-                    GestureDetector(
-                      onTapDown: (_) => _startListening(),
-                      onTapUp: (_) => _stopListening(),
-                      onTapCancel: () => _stopListening(),
-                      child: AnimatedBuilder(
-                        animation: _pulseController,
-                        builder: (context, child) {
-                          final double pulse = 1.0 + (_pulseController.value * 0.15);
-                          return Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: (_isListening ? Colors.redAccent : AppTheme.primaryDark)
-                                      .withValues(alpha: _isListening ? 0.4 : 0.2),
-                                  blurRadius: _isListening ? 24 * pulse : 12,
-                                  spreadRadius: _isListening ? 6 * pulse : 2,
-                                ),
-                              ],
-                            ),
-                            child: Transform.scale(
-                              scale: _isListening ? pulse : 1.0,
-                              child: CircleAvatar(
-                                radius: 36,
-                                backgroundColor: _isListening ? Colors.redAccent : AppTheme.primaryDark,
-                                child: Icon(
-                                  _isListening ? Icons.mic : Icons.mic_none,
-                                  size: 32,
-                                  color: Colors.black,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      _isListening ? 'Suelta para enviar' : 'Mantén presionado para hablar',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
-                      ),
-                    ),
-                  ],
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.surfaceDark : Colors.white,
+                border: Border(
+                  top: BorderSide(
+                    color: isDark ? AppTheme.glassBorder : Colors.grey[200]!,
+                    width: 1,
+                  ),
                 ),
+              ),
+              child: Row(
+                children: [
+                  // Text input field
+                  Expanded(
+                    child: TextField(
+                      controller: _textController,
+                      style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                      decoration: InputDecoration(
+                        hintText: 'Escribe o presiona el micro...',
+                        hintStyle: const TextStyle(fontSize: 14, color: Colors.grey),
+                        filled: true,
+                        fillColor: isDark ? AppTheme.surfaceDarkElevated : Colors.grey[100],
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(24),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                      onSubmitted: (val) => _sendMessage(val),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+
+                  // Send text button (if text entered) or Mic button
+                  _textController.text.trim().isNotEmpty
+                      ? CircleAvatar(
+                          radius: 24,
+                          backgroundColor: AppTheme.primaryDark,
+                          child: IconButton(
+                            icon: const Icon(Icons.send_rounded, color: Colors.black, size: 20),
+                            onPressed: () => _sendMessage(_textController.text),
+                          ),
+                        )
+                      : GestureDetector(
+                          onTap: _toggleListening,
+                          child: AnimatedBuilder(
+                            animation: _pulseController,
+                            builder: (context, child) {
+                              final double pulse = 1.0 + (_pulseController.value * 0.15);
+                              return Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: (_isListening ? Colors.redAccent : AppTheme.primaryDark)
+                                          .withValues(alpha: _isListening ? 0.5 : 0.25),
+                                      blurRadius: _isListening ? 20 * pulse : 10,
+                                      spreadRadius: _isListening ? 4 * pulse : 1,
+                                    ),
+                                  ],
+                                ),
+                                child: Transform.scale(
+                                  scale: _isListening ? pulse : 1.0,
+                                  child: CircleAvatar(
+                                    radius: 24,
+                                    backgroundColor: _isListening ? Colors.redAccent : AppTheme.primaryDark,
+                                    child: Icon(
+                                      _isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                                      size: 24,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                ],
               ),
             ),
           ],
