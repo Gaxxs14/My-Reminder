@@ -167,11 +167,18 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
     }
   }
 
+  bool _continuousVoiceMode = false;
+
   // Initialize Text to Speech
   Future<void> _initTts() async {
     try {
       await _flutterTts.setLanguage('es-ES');
       await _applyTtsSettings();
+      _flutterTts.setCompletionHandler(() {
+        if (mounted && _isSpeakerEnabled && _continuousVoiceMode && !_isListening && !_isLoading) {
+          _toggleListening();
+        }
+      });
     } catch (e) {
       debugPrint('Error initializing TTS: $e');
     }
@@ -574,6 +581,25 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
+          IconButton(
+            icon: Icon(
+              _continuousVoiceMode ? Icons.forum_rounded : Icons.forum_outlined,
+              color: _continuousVoiceMode ? AppTheme.accentTeal : Colors.grey,
+            ),
+            tooltip: _continuousVoiceMode ? 'Modo Charla Continua ACTIVADO' : 'Modo Charla Continua DESACTIVADO',
+            onPressed: () {
+              setState(() {
+                _continuousVoiceMode = !_continuousVoiceMode;
+              });
+              AppToast.show(
+                context,
+                message: _continuousVoiceMode
+                    ? '💬 Modo Charla Continua ACTIVADO: Mulan te escuchará tras responder.'
+                    : 'Modo Charla Continua DESACTIVADO',
+                type: _continuousVoiceMode ? AppToastType.success : AppToastType.info,
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.tune_rounded, color: AppTheme.primaryDark),
             tooltip: 'Configurar Opciones de Voz',
