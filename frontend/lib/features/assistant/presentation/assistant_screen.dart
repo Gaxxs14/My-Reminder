@@ -467,7 +467,13 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
     _scrollToBottom();
 
     ReminderModel? createdReminder;
-    String speechResponse = 'Entendido.';
+    String speechResponse = '';
+
+    final lower = queryText.toLowerCase();
+    final isDeleteIntent = lower.contains('elimina') ||
+        lower.contains('borra') ||
+        lower.contains('quita') ||
+        lower.contains('cancela');
 
     try {
       final apiClient = ref.read(apiClientProvider);
@@ -479,10 +485,37 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
-        speechResponse = data['speechResponse'] as String? ?? 'Entendido.';
+        speechResponse = data['speechResponse'] as String? ?? '';
         final String action = data['action'] as String? ?? 'talk';
 
-        if (action == 'create' && data['createdReminder'] != null) {
+        if (action == 'delete') {
+          final deletedTitle = data['deletedReminderTitle'] as String?;
+          final targetTitle = (deletedTitle != null && deletedTitle.isNotEmpty)
+              ? deletedTitle
+              : queryText.replaceAll(RegExp(r'(elimina|borra|quita|cancela)\s+(el|la|mi|recordatorio|tarea)?', caseSensitive: false), '').trim();
+
+          final currentReminders = ref.read(remindersProvider);
+          final matches = currentReminders.where((r) =>
+              r.title.toLowerCase().contains(targetTitle.toLowerCase()) ||
+              targetTitle.toLowerCase().contains(r.title.toLowerCase())).toList();
+
+          for (final m in matches) {
+            await ref.read(remindersProvider.notifier).deleteReminder(m.id);
+          }
+
+          if (matches.isNotEmpty) {
+            speechResponse = speechResponse.isNotEmpty
+                ? speechResponse
+                : '¡Listo! He eliminado "${matches.first.title}" de tu Agenda.';
+            if (mounted) {
+              AppToast.show(context, message: '¡Eliminado de tu Agenda!', type: AppToastType.warning);
+            }
+          } else {
+            speechResponse = speechResponse.isNotEmpty
+                ? speechResponse
+                : 'No encontré ningún recordatorio en tu Agenda que coincida para eliminar.';
+          }
+        } else if (action == 'create' && data['createdReminder'] != null) {
           final reminderJson = Map<String, dynamic>.from(data['createdReminder'] as Map);
           createdReminder = ReminderModel(
             id: reminderJson['id'] as String,
@@ -497,11 +530,30 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
         }
       }
     } catch (_) {
-      speechResponse = 'Entendido. He procesado tu mensaje.';
+      // Backend offline or error fallback
     }
 
-    // Force fallback local parsing if no reminder model returned but query has intent
-    final lower = queryText.toLowerCase();
+    // Fallback local deletion or creation if backend didn't handle it
+    if (isDeleteIntent && speechResponse.isEmpty) {
+      String targetTitle = queryText.replaceAll(RegExp(r'(elimina|borra|quita|cancela)\s+(el|la|mi|recordatorio|tarea)?', caseSensitive: false), '').trim();
+      final currentReminders = ref.read(remindersProvider);
+      final matches = currentReminders.where((r) =>
+          r.title.toLowerCase().contains(targetTitle.toLowerCase()) ||
+          targetTitle.toLowerCase().contains(r.title.toLowerCase())).toList();
+
+      if (matches.isNotEmpty) {
+        for (final m in matches) {
+          await ref.read(remindersProvider.notifier).deleteReminder(m.id);
+        }
+        speechResponse = '¡Listo! He eliminado "${matches.first.title}" de tu Agenda.';
+        if (mounted) {
+          AppToast.show(context, message: '¡Eliminado de tu Agenda!', type: AppToastType.warning);
+        }
+      } else {
+        speechResponse = 'No encontré ningún recordatorio en tu Agenda con el nombre "$targetTitle" para eliminar.';
+      }
+    }
+
     final hasReminderIntent = lower.contains('recuérdame') ||
         lower.contains('recordar') ||
         lower.contains('agendar') ||
@@ -512,9 +564,13 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
         lower.contains('tengo que') ||
         lower.contains('llamar');
 
-    if (createdReminder == null && hasReminderIntent) {
+    if (createdReminder == null && hasReminderIntent && !isDeleteIntent) {
       createdReminder = _createLocalReminder(queryText);
-      speechResponse = '¡Entendido! He agendado "${createdReminder.title}" en tu Agenda principal.';
+      speechResponse = '¡Entendido! He agendado "${createdReminder.title}" en tu Agenda principal para el ${DateFormat('dd/MM/yyyy HH:mm').format(createdReminder.dueDate)}.';
+    }
+
+    if (speechResponse.isEmpty) {
+      speechResponse = '¡Te escucho perfectamente! ¿En qué más te puedo ayudar hoy con tu agenda?';
     }
 
     if (createdReminder != null) {

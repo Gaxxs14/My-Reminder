@@ -1,9 +1,11 @@
 using System;
+using System.Linq;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using MyReminder.API.Data;
 using MyReminder.API.Models;
 using MyReminder.API.Services;
@@ -85,8 +87,36 @@ namespace MyReminder.API.Controllers
                 }
 
                 Reminder? createdReminder = null;
+                string? deletedReminderTitle = null;
 
-                if (action == "create")
+                if (action == "delete")
+                {
+                    var titleToDelete = "";
+                    if (root.TryGetProperty("title", out var titleNode) && titleNode.ValueKind != JsonValueKind.Null)
+                    {
+                        titleToDelete = titleNode.GetString() ?? "";
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(titleToDelete))
+                    {
+                        var matchingReminders = await _context.Reminders
+                            .Where(r => r.UserId == userId.Value && r.Title.ToLower().Contains(titleToDelete.ToLower()))
+                            .ToListAsync();
+
+                        if (matchingReminders.Any())
+                        {
+                            deletedReminderTitle = matchingReminders.First().Title;
+                            _context.Reminders.RemoveRange(matchingReminders);
+                            await _context.SaveChangesAsync();
+                            speechResponse = $"¡Listo! He eliminado tu recordatorio '{deletedReminderTitle}'.";
+                        }
+                        else
+                        {
+                            speechResponse = $"No encontré ningún recordatorio pendiente que coincida con '{titleToDelete}' para eliminar.";
+                        }
+                    }
+                }
+                else if (action == "create")
                 {
                     var title = "Recordatorio";
                     if (root.TryGetProperty("title", out var titleNode) && titleNode.ValueKind != JsonValueKind.Null)
@@ -137,7 +167,8 @@ namespace MyReminder.API.Controllers
                 {
                     action = action,
                     speechResponse = speechResponse,
-                    createdReminder = createdReminder
+                    createdReminder = createdReminder,
+                    deletedReminderTitle = deletedReminderTitle
                 });
             }
             catch (Exception ex)

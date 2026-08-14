@@ -45,16 +45,17 @@ Hoy es {serverCurrentTime:dddd, dd 'de' MMMM 'de' yyyy} y la hora actual en el s
 FORMATO DE RESPUESTA OBLIGATORIO:
 Debes analizar el mensaje del usuario y responder ÚNICAMENTE con un objeto JSON válido (sin bloques markdown ni explicaciones fuera del JSON):
 {{
-  ""action"": ""create"" | ""list"" | ""complete"" | ""talk"",
-  ""title"": ""Título resumido del recordatorio en español (solo si el usuario quiere agendar algo)"",
+  ""action"": ""create"" | ""delete"" | ""list"" | ""complete"" | ""talk"",
+  ""title"": ""Título o tema del recordatorio a crear o eliminar (obligatorio si action es 'create' o 'delete')"",
   ""description"": ""Detalles adicionales o notas (null si no aplica)"",
   ""dueDate"": ""Fecha y hora ISO 8601 YYYY-MM-DDTHH:mm:ssZ calculada exactamente a partir de lo pedido por el usuario"",
   ""category"": ""Personal"" | ""Trabajo"" | ""Salud"" | ""General"",
-  ""speechResponse"": ""Tu respuesta conversacional hablada. Debe ser inteligente, completa, humana, cálida y natural. Si te hizo una pregunta o conversan, responde con total soltura e inteligencia. Si se agendó un recordatorio, confírmaselo con entusiasmo indicando la fecha exacta.""
+  ""speechResponse"": ""Tu respuesta conversacional hablada. Debe ser inteligente, completa, humana, cálida y natural. Si agendaste o eliminaste un recordatorio, confírmalo claramente indicando la acción.""
 }}
 
 REGLAS PARA 'action':
 - 'create': Si el usuario pide agendar o recordar algo (ej: 'recuérdame...', 'agendar...', 'el 20 de agosto a las 4 pm...').
+- 'delete': Si el usuario pide borrar, eliminar, quitar o cancelar un recordatorio (ej: 'elimina el recordatorio de la luz', 'borra la tarea de compras').
 - 'list': Si el usuario pregunta qué tareas tiene pendientes.
 - 'complete': Si el usuario avisa que ya realizó una tarea.
 - 'talk': Para cualquier charla, pregunta sobre cualquier tema del mundo, consulta de la app, desahogo o plática fluida.
