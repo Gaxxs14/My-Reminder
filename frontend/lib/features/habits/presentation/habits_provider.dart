@@ -123,10 +123,9 @@ class HabitsNotifier extends StateNotifier<List<HabitModel>> {
 
   // Delete habit
   Future<void> deleteHabit(String id) async {
+    state = state.where((h) => h.id != id).toList();
     try {
       await _repository.deleteHabit(id);
-      state = state.where((h) => h.id != id).toList();
-
       final apiClient = _ref.read(apiClientProvider);
       await apiClient.delete('/api/habits/$id');
     } catch (_) {

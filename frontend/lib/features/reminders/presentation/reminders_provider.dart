@@ -77,9 +77,9 @@ class RemindersNotifier extends StateNotifier<List<ReminderModel>> {
 
   // Delete a reminder
   Future<void> deleteReminder(String id) async {
+    state = state.where((r) => r.id != id).toList();
     await _repository.deleteReminder(id);
     await _notificationService.cancelNotification(id);
-    state = state.where((r) => r.id != id).toList();
   }
 
   // Update an existing reminder

@@ -65,10 +65,9 @@ class NotesNotifier extends StateNotifier<List<NoteModel>> {
 
   // Delete note
   Future<void> deleteNote(String id) async {
+    state = state.where((n) => n.id != id).toList();
     try {
       await _repository.deleteNote(id);
-      state = state.where((n) => n.id != id).toList();
-
       final apiClient = _ref.read(apiClientProvider);
       await apiClient.delete('/api/notes/$id');
     } catch (_) {
