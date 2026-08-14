@@ -311,15 +311,66 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
       }
     }
     if (title.isEmpty) title = queryText;
-    // Capitalize title
     title = title[0].toUpperCase() + title.substring(1);
 
-    DateTime dueDate = DateTime.now().add(const Duration(hours: 2));
-    if (lower.contains('mañana')) {
-      dueDate = DateTime.now().add(const Duration(days: 1));
+    final now = DateTime.now();
+    int year = now.year;
+    int month = now.month;
+    int day = now.day;
+    int hour = now.hour + 1;
+    int minute = 0;
+
+    // Detect exact day of month (e.g., "el 20", "el 15 de agosto", "día 25")
+    final dayMatch = RegExp(r'\b(?:el|día)\s+([0-2]?[0-9]|3[01])\b').firstMatch(lower);
+    if (dayMatch != null) {
+      final parsedDay = int.tryParse(dayMatch.group(1)!);
+      if (parsedDay != null && parsedDay >= 1 && parsedDay <= 31) {
+        day = parsedDay;
+        // If parsed day is earlier than today, assume next month
+        if (day < now.day && !lower.contains('pasado mañana') && !lower.contains('mañana')) {
+          month = now.month == 12 ? 1 : now.month + 1;
+          if (month == 1) year++;
+        }
+      }
     } else if (lower.contains('pasado mañana')) {
-      dueDate = DateTime.now().add(const Duration(days: 2));
+      final target = now.add(const Duration(days: 2));
+      year = target.year;
+      month = target.month;
+      day = target.day;
+    } else if (lower.contains('mañana')) {
+      final target = now.add(const Duration(days: 1));
+      year = target.year;
+      month = target.month;
+      day = target.day;
     }
+
+    // Detect month name (e.g., "agosto", "septiembre", "octubre")
+    final months = [
+      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+    ];
+    for (int i = 0; i < months.length; i++) {
+      if (lower.contains(months[i])) {
+        month = i + 1;
+        break;
+      }
+    }
+
+    // Detect exact hour (e.g., "a las 4", "a las 16", "a las 5 pm", "a las 8 am")
+    final hourMatch = RegExp(r'\ba\s+las\s+([0-2]?[0-9])(?::([0-5][0-9]))?\s*(pm|am|de la tarde|de la mañana|de la noche)?').firstMatch(lower);
+    if (hourMatch != null) {
+      int parsedHour = int.tryParse(hourMatch.group(1)!) ?? hour;
+      if (hourMatch.group(2) != null) {
+        minute = int.tryParse(hourMatch.group(2)!) ?? 0;
+      }
+      final period = hourMatch.group(3);
+      if (period != null && (period == 'pm' || period == 'de la tarde' || period == 'de la noche') && parsedHour < 12) {
+        parsedHour += 12;
+      }
+      hour = parsedHour;
+    }
+
+    final dueDate = DateTime(year, month, day, hour, minute);
 
     return ReminderModel(
       id: 'r-${DateTime.now().millisecondsSinceEpoch}',

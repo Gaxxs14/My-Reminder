@@ -27,12 +27,13 @@ class BiometricService {
         localizedReason: reason,
         options: const AuthenticationOptions(
           biometricOnly: false,
-          stickyAuth: true,
+          stickyAuth: false,
           useErrorDialogs: true,
+          sensitiveTransaction: false,
         ),
       );
       return didAuthenticate;
-    } on PlatformException catch (_) {
+    } catch (e) {
       return false;
     }
   }
