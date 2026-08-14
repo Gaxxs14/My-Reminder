@@ -25,6 +25,20 @@ class MessageItem {
   }) : timestamp = timestamp ?? DateTime.now();
 }
 
+class VoiceOption {
+  final String name;
+  final String icon;
+  final double pitch;
+  final double rate;
+
+  const VoiceOption({
+    required this.name,
+    required this.icon,
+    required this.pitch,
+    required this.rate,
+  });
+}
+
 class AssistantScreen extends ConsumerStatefulWidget {
   const AssistantScreen({super.key});
 
@@ -43,7 +57,19 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
   bool _isSending = false;
   bool _isSpeakerEnabled = true;
   String _lastWords = '';
-  
+
+  double _currentPitch = 1.0;
+  double _currentRate = 0.5;
+  String _selectedVoiceName = 'Mulan (Femenina Cálida)';
+
+  static const List<VoiceOption> _voiceOptions = [
+    VoiceOption(name: 'Mulan (Femenina Cálida)', icon: '🌸', pitch: 1.0, rate: 0.5),
+    VoiceOption(name: 'Femenina Dulce', icon: '🎀', pitch: 1.25, rate: 0.55),
+    VoiceOption(name: 'Masculina Grave', icon: '🧔', pitch: 0.70, rate: 0.45),
+    VoiceOption(name: 'Masculina Sobria', icon: '👨', pitch: 0.85, rate: 0.50),
+    VoiceOption(name: 'Voz Rápida & Dinámica', icon: '⚡', pitch: 1.0, rate: 0.65),
+  ];
+
   final List<MessageItem> _messages = [];
   final ScrollController _scrollController = ScrollController();
   late AnimationController _pulseController;
@@ -53,11 +79,12 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
     super.initState();
     _initSpeech();
     _initTts();
+    _loadVoicePreference();
     
     // Welcome message from Assistant
     _messages.add(
       MessageItem(
-        text: '¡Hola! Soy tu asistente de My Reminder. Toca el micrófono para hablar o escribe tu mensaje abajo, por ejemplo: "Recuérdame pagar la luz mañana a las 5 PM". ¡Tus tareas se guardarán automáticamente en tu Agenda!',
+        text: '¡Hola! Soy tu asistente de My Reminder. Toca el micrófono para hablar o escribe tu mensaje abajo. Puedo responder tus dudas sobre la app o agendar tus tareas en tu Agenda.',
         isUser: false,
       ),
     );
@@ -77,6 +104,32 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
     _scrollController.dispose();
     _pulseController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadVoicePreference() async {
+    final pitchStr = await ref.read(secureStorageProvider).read('assistant_voice_pitch');
+    final rateStr = await ref.read(secureStorageProvider).read('assistant_voice_rate');
+    final nameStr = await ref.read(secureStorageProvider).read('assistant_voice_name');
+
+    if (pitchStr != null && rateStr != null) {
+      setState(() {
+        _currentPitch = double.tryParse(pitchStr) ?? 1.0;
+        _currentRate = double.tryParse(rateStr) ?? 0.5;
+        if (nameStr != null) _selectedVoiceName = nameStr;
+      });
+      await _applyTtsSettings();
+    }
+  }
+
+  Future<void> _applyTtsSettings() async {
+    try {
+      await _flutterTts.setLanguage('es-ES');
+      await _flutterTts.setSpeechRate(_currentRate);
+      await _flutterTts.setVolume(1.0);
+      await _flutterTts.setPitch(_currentPitch);
+    } catch (e) {
+      debugPrint('Error setting TTS pitch/rate: $e');
+    }
   }
 
   // Initialize Speech to Text with runtime permission check
@@ -118,9 +171,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
   Future<void> _initTts() async {
     try {
       await _flutterTts.setLanguage('es-ES');
-      await _flutterTts.setSpeechRate(0.5);
-      await _flutterTts.setVolume(1.0);
-      await _flutterTts.setPitch(1.0);
+      await _applyTtsSettings();
     } catch (e) {
       debugPrint('Error initializing TTS: $e');
     }
@@ -130,7 +181,119 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
   Future<void> _speak(String text) async {
     if (!_isSpeakerEnabled) return;
     await _flutterTts.stop();
+    await _applyTtsSettings();
     await _flutterTts.speak(text);
+  }
+
+  void _showVoiceSelectorModal() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.surfaceDark : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            border: Border.all(color: isDark ? AppTheme.glassBorder : Colors.grey[200]!),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.record_voice_over_rounded, color: AppTheme.primaryDark, size: 24),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Personalizar Voz del Asistente',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Selecciona el estilo de voz que más te guste:',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _voiceOptions.length,
+                  itemBuilder: (context, idx) {
+                    final opt = _voiceOptions[idx];
+                    final isSelected = _selectedVoiceName == opt.name;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: InkWell(
+                        onTap: () async {
+                          setState(() {
+                            _selectedVoiceName = opt.name;
+                            _currentPitch = opt.pitch;
+                            _currentRate = opt.rate;
+                          });
+                          await ref.read(secureStorageProvider).write('assistant_voice_pitch', opt.pitch.toString());
+                          await ref.read(secureStorageProvider).write('assistant_voice_rate', opt.rate.toString());
+                          await ref.read(secureStorageProvider).write('assistant_voice_name', opt.name);
+                          await _applyTtsSettings();
+
+                          await _flutterTts.stop();
+                          await _flutterTts.speak('Hola, este es mi tono de voz en My Reminder');
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppTheme.primaryDark.withValues(alpha: 0.15)
+                                : (isDark ? AppTheme.surfaceDarkElevated : Colors.grey[100]),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isSelected ? AppTheme.primaryDark : Colors.transparent,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Text(opt.icon, style: const TextStyle(fontSize: 22)),
+                              const SizedBox(width: 12),
+                              Text(
+                                opt.name,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                  color: isSelected
+                                      ? AppTheme.primaryDark
+                                      : (isDark ? Colors.white : Colors.black87),
+                                ),
+                              ),
+                              const Spacer(),
+                              if (isSelected)
+                                const Icon(Icons.check_circle_rounded, color: AppTheme.primaryDark, size: 20),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   // Fallback local intent parser for robust reminder creation
@@ -276,8 +439,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
         }
       }
     } catch (_) {
-      // Backend offline fallback: check if query text looks like a reminder
-      speechResponse = 'Entendido. Agendé tu compromiso en tu Agenda.';
+      speechResponse = 'Entendido. He procesado tu mensaje.';
     }
 
     // Force fallback local parsing if no reminder model returned but query has intent
@@ -297,7 +459,6 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
       speechResponse = '¡Entendido! He agendado "${createdReminder.title}" en tu Agenda principal.';
     }
 
-    // If a reminder was created (cloud or local), persist to local SQLite and state
     if (createdReminder != null) {
       await ref.read(localReminderRepositoryProvider).insertReminder(createdReminder);
       await ref.read(remindersProvider.notifier).loadReminders();
@@ -362,6 +523,11 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.tune_rounded, color: AppTheme.primaryDark),
+            tooltip: 'Configurar Opciones de Voz',
+            onPressed: _showVoiceSelectorModal,
+          ),
           IconButton(
             icon: Icon(
               _isSpeakerEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
@@ -562,7 +728,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
                       style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                       onChanged: (_) => setState(() {}),
                       decoration: InputDecoration(
-                        hintText: 'Escribe un mensaje o recordatorio...',
+                        hintText: 'Escribe un mensaje o duda de la app...',
                         hintStyle: const TextStyle(fontSize: 14, color: Colors.grey),
                         filled: true,
                         fillColor: isDark ? AppTheme.surfaceDarkElevated : Colors.grey[100],

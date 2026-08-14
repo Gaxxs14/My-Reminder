@@ -36,19 +36,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _checkBiometrics() async {
     final bioPref = await ref.read(secureStorageProvider).read('biometrics_enabled');
+    final supported = await ref.read(biometricProvider).isDeviceSupported();
     final canAuth = await ref.read(biometricProvider).canAuthenticate();
     
-    if (canAuth && bioPref != 'false') {
+    if ((supported || canAuth) && bioPref != 'false') {
       setState(() {
         _biometricsAvailable = true;
       });
       final savedUsername = await ref.read(secureStorageProvider).getUsername();
-      if (savedUsername != null) {
+      if (savedUsername != null && _userController.text.isEmpty) {
         _userController.text = savedUsername;
       }
     } else {
       setState(() {
-        _biometricsAvailable = false;
+        _biometricsAvailable = true; // Keep visible so user can tap to authenticate
       });
     }
   }
