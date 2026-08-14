@@ -54,12 +54,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _authenticateWithBiometrics() async {
+    final savedUsername = await ref.read(secureStorageProvider).getUsername();
+    final savedPassword = await ref.read(secureStorageProvider).read('saved_password');
     final hasToken = await ref.read(secureStorageProvider).getToken();
-    if (hasToken == null) {
+
+    if (hasToken == null && (savedUsername == null || savedPassword == null)) {
       if (mounted) {
         AppToast.show(
           context,
-          message: 'Inicia sesión con tu contraseña primero para vincular tu huella.',
+          message: 'Inicia sesión con tu usuario y contraseña una vez para vincular tu huella.',
           type: AppToastType.warning,
         );
       }
@@ -68,14 +71,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     setState(() => _isLoading = true);
     final success = await ref.read(authStateProvider.notifier).loginWithBiometrics();
-    setState(() => _isLoading = false);
+    if (mounted) setState(() => _isLoading = false);
 
     if (success && mounted) {
-      AppToast.show(context, message: '¡Desbloqueado con biometría!', type: AppToastType.success);
+      AppToast.show(context, message: '¡Sesión iniciada con Huella Dactilar!', type: AppToastType.success);
     } else if (mounted) {
       AppToast.show(
         context,
-        message: 'No se reconoció la huella o la sesión expiró.',
+        message: 'No se reconoció la huella o se canceló el escaneo.',
         type: AppToastType.error,
       );
     }

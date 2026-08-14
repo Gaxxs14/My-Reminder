@@ -61,8 +61,8 @@ class AuthService {
         if (token != null && token.isNotEmpty) {
           await _secureStorage.saveToken(token);
           await _secureStorage.saveUsername(username);
+          await _secureStorage.write('saved_password', password);
           
-          // Initialize local DB on success
           await _dbHelper.initDatabase();
           return AuthResult(success: true);
         }
@@ -107,8 +107,8 @@ class AuthService {
         if (token != null && token.isNotEmpty) {
           await _secureStorage.saveToken(token);
           await _secureStorage.saveUsername(username);
+          await _secureStorage.write('saved_password', password);
           
-          // Initialize local DB on success
           await _dbHelper.initDatabase();
           return AuthResult(success: true);
         }
@@ -133,19 +133,30 @@ class AuthService {
     }
   }
 
-  // Login using FaceID/Fingerprint if there's a stored session
+  // Login using FaceID/Fingerprint seamlessly
   Future<bool> loginWithBiometrics() async {
-    final hasToken = await _secureStorage.getToken();
-    if (hasToken == null) return false;
-
     final canAuth = await _biometricService.canAuthenticate();
     if (!canAuth) return false;
 
-    final authenticated = await _biometricService.authenticate();
-    if (authenticated) {
+    final authenticated = await _biometricService.authenticate(
+      reason: 'Escanea tu huella dactilar para acceder a My Reminder',
+    );
+    if (!authenticated) return false;
+
+    final hasToken = await _secureStorage.getToken();
+    if (hasToken != null) {
       await _dbHelper.initDatabase();
       return true;
     }
+
+    final savedUsername = await _secureStorage.getUsername();
+    final savedPassword = await _secureStorage.read('saved_password');
+
+    if (savedUsername != null && savedPassword != null) {
+      final result = await login(username: savedUsername, password: savedPassword);
+      return result.success;
+    }
+
     return false;
   }
 
