@@ -4,10 +4,10 @@ class SecureStorageService {
   final FlutterSecureStorage _storage;
 
   SecureStorageService()
-      : _storage = const FlutterSecureStorage(
-          aOptions: AndroidOptions(encryptedSharedPreferences: true),
-          iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
-        );
+    : _storage = const FlutterSecureStorage(
+        aOptions: AndroidOptions(encryptedSharedPreferences: true),
+        iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
+      );
 
   // General operations
   Future<void> write(String key, String value) async {
@@ -26,7 +26,7 @@ class SecureStorageService {
     await _storage.deleteAll();
   }
 
-  // Helper methods for Session JWT Token
+  // Helper methods for Session Access JWT Token
   Future<void> saveToken(String token) async {
     await write('auth_token', token);
   }
@@ -37,6 +37,19 @@ class SecureStorageService {
 
   Future<void> deleteToken() async {
     await delete('auth_token');
+  }
+
+  // Helper methods for Refresh Token
+  Future<void> saveRefreshToken(String refreshToken) async {
+    await write('refresh_token', refreshToken);
+  }
+
+  Future<String?> getRefreshToken() async {
+    return await read('refresh_token');
+  }
+
+  Future<void> deleteRefreshToken() async {
+    await delete('refresh_token');
   }
 
   // Helper methods for Username

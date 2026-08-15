@@ -41,11 +41,7 @@ class LocalReminderRepository {
   // Delete a reminder by ID
   Future<void> deleteReminder(String id) async {
     final db = _dbHelper.database;
-    await db.delete(
-      'reminders',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.delete('reminders', where: 'id = ?', whereArgs: [id]);
   }
 
   // Get reminders that have not been uploaded to the cloud
@@ -58,7 +54,7 @@ class LocalReminderRepository {
     return List.generate(maps.length, (i) => ReminderModel.fromMap(maps[i]));
   }
 
-  // Clean local data and write server reminders (Sync synchronization)
+  // Clean local data and write server reminders (used for RESET, not regular sync)
   Future<void> clearAndReplace(List<ReminderModel> serverReminders) async {
     final db = _dbHelper.database;
     await db.transaction((txn) async {
@@ -71,5 +67,65 @@ class LocalReminderRepository {
         );
       }
     });
+  }
+
+  // DELTA SYNC: Hace merge inteligente con la lista del servidor sin borrar todo.
+  // - Nuevos del servidor → se insertan
+  // - Locales sin sincronizar (dirty) confirmados → se marcan como sincronizados
+  // - Locales limpios → se sobrescriben con la versión del servidor (fuente de verdad)
+  // - Locales limpios ausentes del servidor → se eliminan (borrados en otro dispositivo)
+  Future<List<ReminderModel>> mergeWithServer(
+    List<ReminderModel> serverReminders,
+  ) async {
+    final db = _dbHelper.database;
+    final local = await getReminders();
+    final localById = {for (final r in local) r.id: r};
+    final serverById = {for (final r in serverReminders) r.id: r};
+
+    await db.transaction((txn) async {
+      // 1. Insertar / actualizar según estado local
+      for (final server in serverReminders) {
+        final existing = localById[server.id];
+        if (existing == null) {
+          // Llegó desde otro dispositivo → insertar
+          await txn.insert(
+            'reminders',
+            server.toMap(),
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        } else if (!existing.isSynced) {
+          // Local con cambios sin subir → el servidor ya lo upsertió,
+          // solo confirmar como sincronizado.
+          await txn.update(
+            'reminders',
+            existing.copyWith(isSynced: true).toMap(),
+            where: 'id = ?',
+            whereArgs: [server.id],
+          );
+        } else {
+          // Local limpio → el servidor es la fuente de verdad → actualizar
+          await txn.update(
+            'reminders',
+            server.toMap(),
+            where: 'id = ?',
+            whereArgs: [server.id],
+          );
+        }
+      }
+
+      // 2. Eliminar locales limpios que ya no existen en el servidor
+      //    (fueron borrados en la nube o desde otro dispositivo).
+      for (final localRem in local) {
+        if (localRem.isSynced && !serverById.containsKey(localRem.id)) {
+          await txn.delete(
+            'reminders',
+            where: 'id = ?',
+            whereArgs: [localRem.id],
+          );
+        }
+      }
+    });
+
+    return getReminders();
   }
 }

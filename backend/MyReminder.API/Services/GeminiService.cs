@@ -115,6 +115,12 @@ REGLAS PARA 'action':
 
             var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={apiKey}";
 
+            // ============ LÍMITES DE TOKENS (FASE 4.1) ============
+            // Límite máximo de notas enviadas al prompt (evita saturar tokens).
+            var maxNotes = _configuration.GetValue<int?>("Gemini:MaxNotesForSemanticSearch") ?? 20;
+            // Máximo de caracteres por nota (trunca contenido muy largo).
+            var maxCharsPerNote = _configuration.GetValue<int?>("Gemini:MaxCharsPerNoteForSemanticSearch") ?? 1500;
+
             var systemInstruction = @"
 Eres el Buscador Semántico Inteligente de la aplicación 'My-Reminder'.
 Tu tarea es buscar en las notas personales del usuario y determinar cuáles de ellas se relacionan o responden directamente a su consulta.
@@ -128,18 +134,34 @@ Debes analizar el contenido y significado de cada nota, y devolver ÚNICAMENTE u
   ]
 }
 Si ninguna nota tiene relación directa con la búsqueda, devuelve la lista 'matches' vacía: { ""matches"": [] }.
+Solo se te muestran las " + maxNotes + @" notas más recientes (posiblemente hay más notas del usuario que no se muestran). Responde únicamente con los matches entre lo que ves.
 No respondas nada más que el JSON puro, sin bloques de código markdown ni texto explicativo.
 ";
 
-            // Format notes list for Gemini context
+            // Format notes list for Gemini context (con límites aplicados)
+            // 1. Ordenar por CreatedAt descendente (más recientes primero) y tomar máximo.
+            // 2. Truncar el contenido de cada nota si supera el máximo.
             var builder = new StringBuilder();
             builder.AppendLine($"Consulta del usuario: \"{query}\"");
-            builder.AppendLine("\nLista de Notas Personales:");
-            foreach (var note in userNotes)
+            builder.AppendLine($"\nMostrando hasta {maxNotes} notas (de {userNotes.Count} totales).\n");
+            builder.AppendLine("Lista de Notas Personales:");
+
+            var notesToSend = userNotes
+                .OrderByDescending(n => n.CreatedAt)
+                .Take(maxNotes)
+                .ToList();
+
+            foreach (var note in notesToSend)
             {
+                var noteContent = note.Content;
+                if (noteContent.Length > maxCharsPerNote)
+                {
+                    noteContent = noteContent.Substring(0, maxCharsPerNote) + "... [TRUNCADO]";
+                }
+
                 builder.AppendLine($"ID: {note.Id}");
                 builder.AppendLine($"Título: {note.Title}");
-                builder.AppendLine($"Contenido: {note.Content}");
+                builder.AppendLine($"Contenido: {noteContent}");
                 builder.AppendLine("---");
             }
 

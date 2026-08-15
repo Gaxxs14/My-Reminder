@@ -21,10 +21,10 @@ class AuthService {
     required BiometricService biometricService,
     required DbHelper dbHelper,
     required ApiClient apiClient,
-  })  : _secureStorage = secureStorage,
-        _biometricService = biometricService,
-        _dbHelper = dbHelper,
-        _apiClient = apiClient;
+  }) : _secureStorage = secureStorage,
+       _biometricService = biometricService,
+       _dbHelper = dbHelper,
+       _apiClient = apiClient;
 
   // Check if the user has an active session token saved
   Future<bool> checkSession() async {
@@ -41,6 +41,70 @@ class AuthService {
     return false;
   }
 
+  // Guarda los tokens de sesión (access + refresh) tras login/registro
+  Future<bool> _saveSession(Map<String, dynamic> data, String username) async {
+    final accessToken =
+        data['accessToken'] as String? ?? data['access_token'] as String?;
+    final refreshToken =
+        data['refreshToken'] as String? ?? data['refresh_token'] as String?;
+
+    if (accessToken == null ||
+        accessToken.isEmpty ||
+        refreshToken == null ||
+        refreshToken.isEmpty) {
+      return false;
+    }
+
+    await _secureStorage.saveToken(accessToken);
+    await _secureStorage.saveRefreshToken(refreshToken);
+    await _secureStorage.saveUsername(username);
+    // NOTA DE SEGURIDAD: NO se guarda la contraseña en el dispositivo.
+    // El acceso biométrico ahora depende únicamente de un token JWT válido.
+    return true;
+  }
+
+  // Renueva el Access Token usando el Refresh Token guardado (rotación)
+  Future<AuthResult> refreshSession() async {
+    final refreshToken = await _secureStorage.getRefreshToken();
+    if (refreshToken == null || refreshToken.isEmpty) {
+      return AuthResult(
+        success: false,
+        errorMessage: 'Sin refresh token disponible.',
+      );
+    }
+
+    try {
+      final response = await _apiClient.post(
+        '/api/auth/refresh',
+        data: {'refreshToken': refreshToken},
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = Map<String, dynamic>.from(
+          response.data as Map,
+        );
+        final username = await _secureStorage.getUsername() ?? '';
+        final saved = await _saveSession(data, username);
+        // El refresh token emitido reemplaza al anterior en el servidor (rotación)
+        if (saved) {
+          await _dbHelper.initDatabase();
+          return AuthResult(success: true);
+        }
+      }
+      return AuthResult(
+        success: false,
+        errorMessage: 'No se pudo renovar la sesión.',
+      );
+    } on DioException catch (e) {
+      return AuthResult(
+        success: false,
+        errorMessage: 'Error renovando sesión: ${e.message ?? e.toString()}',
+      );
+    } catch (e) {
+      return AuthResult(success: false, errorMessage: 'Error inesperado: $e');
+    }
+  }
+
   // Register user on C# backend and store JWT token
   Future<AuthResult> register({
     required String username,
@@ -49,25 +113,23 @@ class AuthService {
     try {
       final response = await _apiClient.post(
         '/api/auth/register',
-        data: {
-          'username': username,
-          'password': password,
-        },
+        data: {'username': username, 'password': password},
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
-        final token = (data['token'] ?? data['Token']) as String?;
-        if (token != null && token.isNotEmpty) {
-          await _secureStorage.saveToken(token);
-          await _secureStorage.saveUsername(username);
-          await _secureStorage.write('saved_password', password);
-          
+        final Map<String, dynamic> data = Map<String, dynamic>.from(
+          response.data as Map,
+        );
+        final saved = await _saveSession(data, username);
+        if (saved) {
           await _dbHelper.initDatabase();
           return AuthResult(success: true);
         }
       }
-      return AuthResult(success: false, errorMessage: 'Respuesta inválida del servidor');
+      return AuthResult(
+        success: false,
+        errorMessage: 'Respuesta inválida del servidor',
+      );
     } on DioException catch (e) {
       if (e.response != null) {
         final data = e.response?.data;
@@ -75,19 +137,29 @@ class AuthService {
           return AuthResult(success: false, errorMessage: data);
         }
         if (data is Map && data.containsKey('message')) {
-          return AuthResult(success: false, errorMessage: data['message'].toString());
+          return AuthResult(
+            success: false,
+            errorMessage: data['message'].toString(),
+          );
         }
         if (e.response?.statusCode == 409) {
-          return AuthResult(success: false, errorMessage: 'El nombre de usuario ya está registrado.');
+          return AuthResult(
+            success: false,
+            errorMessage: 'El nombre de usuario ya está registrado.',
+          );
         }
       }
-      return AuthResult(success: false, errorMessage: 'Error de red o servidor (Render): ${e.message ?? e.toString()}');
+      return AuthResult(
+        success: false,
+        errorMessage:
+            'Error de red o servidor (Render): ${e.message ?? e.toString()}',
+      );
     } catch (e) {
       return AuthResult(success: false, errorMessage: 'Error inesperado: $e');
     }
   }
 
-  // Login user on C# backend and store JWT token
+  // Login user on C# backend and store tokens
   Future<AuthResult> login({
     required String username,
     required String password,
@@ -95,25 +167,23 @@ class AuthService {
     try {
       final response = await _apiClient.post(
         '/api/auth/login',
-        data: {
-          'username': username,
-          'password': password,
-        },
+        data: {'username': username, 'password': password},
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        final Map<String, dynamic> data = Map<String, dynamic>.from(response.data as Map);
-        final token = (data['token'] ?? data['Token']) as String?;
-        if (token != null && token.isNotEmpty) {
-          await _secureStorage.saveToken(token);
-          await _secureStorage.saveUsername(username);
-          await _secureStorage.write('saved_password', password);
-          
+        final Map<String, dynamic> data = Map<String, dynamic>.from(
+          response.data as Map,
+        );
+        final saved = await _saveSession(data, username);
+        if (saved) {
           await _dbHelper.initDatabase();
           return AuthResult(success: true);
         }
       }
-      return AuthResult(success: false, errorMessage: 'Respuesta inválida del servidor');
+      return AuthResult(
+        success: false,
+        errorMessage: 'Respuesta inválida del servidor',
+      );
     } on DioException catch (e) {
       if (e.response != null) {
         final data = e.response?.data;
@@ -121,19 +191,31 @@ class AuthService {
           return AuthResult(success: false, errorMessage: data);
         }
         if (data is Map && data.containsKey('message')) {
-          return AuthResult(success: false, errorMessage: data['message'].toString());
+          return AuthResult(
+            success: false,
+            errorMessage: data['message'].toString(),
+          );
         }
         if (e.response?.statusCode == 401) {
-          return AuthResult(success: false, errorMessage: 'Usuario o contraseña incorrectos.');
+          return AuthResult(
+            success: false,
+            errorMessage: 'Usuario o contraseña incorrectos.',
+          );
         }
       }
-      return AuthResult(success: false, errorMessage: 'Error de conexión (Render): ${e.message ?? e.toString()}');
+      return AuthResult(
+        success: false,
+        errorMessage:
+            'Error de conexión (Render): ${e.message ?? e.toString()}',
+      );
     } catch (e) {
       return AuthResult(success: false, errorMessage: 'Error inesperado: $e');
     }
   }
 
   // Login using FaceID/Fingerprint seamlessly
+  // AHORA depende exclusivamente de un token JWT válido almacenado en el
+  // almacenamiento seguro del dispositivo. Ya no se usa la contraseña guardada.
   Future<bool> loginWithBiometrics() async {
     final canAuth = await _biometricService.canAuthenticate();
     if (!canAuth) return false;
@@ -143,26 +225,40 @@ class AuthService {
     );
     if (!authenticated) return false;
 
+    // 1. Si existe un token JWT guardado, la sesión es válida: abrir la app.
     final hasToken = await _secureStorage.getToken();
     if (hasToken != null) {
       await _dbHelper.initDatabase();
       return true;
     }
 
-    final savedUsername = await _secureStorage.getUsername();
-    final savedPassword = await _secureStorage.read('saved_password');
-
-    if (savedUsername != null && savedPassword != null) {
-      final result = await login(username: savedUsername, password: savedPassword);
-      return result.success;
-    }
-
+    // 2. Sin token JWT no es posible acceder biométricamente.
+    //    El usuario debe iniciar sesión con usuario/contraseña primero para
+    //    renovar su sesión. Eliminamos cualquier residuo de credenciales.
+    await _secureStorage.delete('saved_password');
     return false;
   }
 
   // Logout and clear all storage / local db
   Future<void> logout() async {
+    // Intentar revocar el refresh token en el servidor (best-effort, no bloquea)
+    try {
+      final refreshToken = await _secureStorage.getRefreshToken();
+      if (refreshToken != null && refreshToken.isNotEmpty) {
+        await _apiClient.post(
+          '/api/auth/revoke',
+          data: {'refreshToken': refreshToken},
+        );
+      }
+    } catch (_) {
+      // Si el access token ya expiró, el revoke fallará silenciosamente.
+      // La limpieza local es lo importante.
+    }
+
     await _secureStorage.deleteToken();
+    await _secureStorage.deleteRefreshToken();
+    // Limpieza adicional de credenciales residuales de versiones anteriores
+    await _secureStorage.delete('saved_password');
     try {
       await _dbHelper.clearAllData();
       await _dbHelper.closeDatabase();

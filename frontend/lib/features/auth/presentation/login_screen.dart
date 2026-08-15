@@ -35,10 +35,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _checkBiometrics() async {
-    final bioPref = await ref.read(secureStorageProvider).read('biometrics_enabled');
+    final bioPref = await ref
+        .read(secureStorageProvider)
+        .read('biometrics_enabled');
     final supported = await ref.read(biometricProvider).isDeviceSupported();
     final canAuth = await ref.read(biometricProvider).canAuthenticate();
-    
+
     if ((supported || canAuth) && bioPref != 'false') {
       setState(() {
         _biometricsAvailable = true;
@@ -49,21 +51,23 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } else {
       setState(() {
-        _biometricsAvailable = true; // Keep visible so user can tap to authenticate
+        _biometricsAvailable =
+            true; // Keep visible so user can tap to authenticate
       });
     }
   }
 
   Future<void> _authenticateWithBiometrics() async {
-    final savedUsername = await ref.read(secureStorageProvider).getUsername();
-    final savedPassword = await ref.read(secureStorageProvider).read('saved_password');
     final hasToken = await ref.read(secureStorageProvider).getToken();
 
-    if (hasToken == null && (savedUsername == null || savedPassword == null)) {
+    // La biometría solo es válida si existe una sesión JWT activa.
+    // Ya no se depende de la contraseña guardada en el dispositivo (seguridad).
+    if (hasToken == null) {
       if (mounted) {
         AppToast.show(
           context,
-          message: 'Inicia sesión con tu usuario y contraseña una vez para vincular tu huella.',
+          message:
+              'Inicia sesión con tu usuario y contraseña una vez para habilitar la huella.',
           type: AppToastType.warning,
         );
       }
@@ -71,11 +75,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     setState(() => _isLoading = true);
-    final success = await ref.read(authStateProvider.notifier).loginWithBiometrics();
+    final success = await ref
+        .read(authStateProvider.notifier)
+        .loginWithBiometrics();
     if (mounted) setState(() => _isLoading = false);
 
     if (success && mounted) {
-      AppToast.show(context, message: '¡Sesión iniciada con Huella Dactilar!', type: AppToastType.success);
+      AppToast.show(
+        context,
+        message: '¡Sesión iniciada con Huella Dactilar!',
+        type: AppToastType.success,
+      );
     } else if (mounted) {
       AppToast.show(
         context,
@@ -90,14 +100,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final result = await ref.read(authStateProvider.notifier).loginWithPassword(
+      final result = await ref
+          .read(authStateProvider.notifier)
+          .loginWithPassword(
             username: _userController.text.trim(),
             password: _passController.text,
           );
 
       if (mounted) {
         if (result.success) {
-          AppToast.show(context, message: '¡Bienvenido de nuevo!', type: AppToastType.success);
+          AppToast.show(
+            context,
+            message: '¡Bienvenido de nuevo!',
+            type: AppToastType.success,
+          );
         } else {
           AppToast.show(
             context,
@@ -108,7 +124,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        AppToast.show(context, message: 'Error de conexión: $e', type: AppToastType.error);
+        AppToast.show(
+          context,
+          message: 'Error de conexión: $e',
+          type: AppToastType.error,
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -165,7 +185,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24.0,
+                  vertical: 16.0,
+                ),
                 child: Form(
                   key: _formKey,
                   child: Column(
@@ -177,10 +200,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: AppTheme.surfaceDark,
-                          border: Border.all(color: AppTheme.glassBorder, width: 1.5),
+                          border: Border.all(
+                            color: AppTheme.glassBorder,
+                            width: 1.5,
+                          ),
                           boxShadow: [
                             BoxShadow(
-                              color: AppTheme.primaryDark.withValues(alpha: 0.25),
+                              color: AppTheme.primaryDark.withValues(
+                                alpha: 0.25,
+                              ),
                               blurRadius: 30,
                               spreadRadius: 2,
                             ),
@@ -195,7 +223,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           fontSize: 34,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.8,
-                          color: isDark ? Colors.white : AppTheme.textPrimaryLight,
+                          color: isDark
+                              ? Colors.white
+                              : AppTheme.textPrimaryLight,
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -204,7 +234,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 14,
-                          color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                          color: isDark
+                              ? AppTheme.textSecondaryDark
+                              : AppTheme.textSecondaryLight,
                         ),
                       ),
                       const SizedBox(height: 36),
@@ -213,15 +245,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       Container(
                         padding: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color: isDark ? AppTheme.surfaceDark.withValues(alpha: 0.85) : Colors.white,
+                          color: isDark
+                              ? AppTheme.surfaceDark.withValues(alpha: 0.85)
+                              : Colors.white,
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
-                            color: isDark ? AppTheme.glassBorder : Colors.grey[200]!,
+                            color: isDark
+                                ? AppTheme.glassBorder
+                                : Colors.grey[200]!,
                             width: 1,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+                              color: Colors.black.withValues(
+                                alpha: isDark ? 0.3 : 0.06,
+                              ),
                               blurRadius: 24,
                               offset: const Offset(0, 8),
                             ),
@@ -234,7 +272,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               labelText: 'Nombre de Usuario',
                               hintText: 'ej. pedro_gomez',
                               prefixIcon: Icons.person_outline_rounded,
-                              validator: (val) => val == null || val.trim().isEmpty
+                              validator: (val) =>
+                                  val == null || val.trim().isEmpty
                                   ? 'Ingresa tu usuario'
                                   : null,
                             ),
@@ -269,7 +308,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: AppTheme.primaryDark.withValues(alpha: 0.35),
+                                color: AppTheme.primaryDark.withValues(
+                                  alpha: 0.35,
+                                ),
                                 blurRadius: 20,
                                 offset: const Offset(0, 6),
                               ),
@@ -279,7 +320,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.transparent,
                               shadowColor: Colors.transparent,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(18),
+                              ),
                             ),
                             onPressed: _login,
                             child: const Text(
@@ -302,8 +345,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: AppTheme.primaryDark.withValues(alpha: 0.12),
-                                border: Border.all(color: AppTheme.primaryDark.withValues(alpha: 0.4), width: 1.5),
+                                color: AppTheme.primaryDark.withValues(
+                                  alpha: 0.12,
+                                ),
+                                border: Border.all(
+                                  color: AppTheme.primaryDark.withValues(
+                                    alpha: 0.4,
+                                  ),
+                                  width: 1.5,
+                                ),
                               ),
                               child: const Icon(
                                 Icons.fingerprint_rounded,
@@ -320,12 +370,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       TextButton(
                         onPressed: () {
                           Navigator.of(context).push(
-                            MaterialPageRoute(builder: (context) => const RegisterScreen()),
+                            MaterialPageRoute(
+                              builder: (context) => const RegisterScreen(),
+                            ),
                           );
                         },
                         child: RichText(
                           text: TextSpan(
-                            style: TextStyle(fontSize: 14, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: isDark
+                                  ? AppTheme.textSecondaryDark
+                                  : AppTheme.textSecondaryLight,
+                            ),
                             children: const [
                               TextSpan(text: '¿No tienes cuenta? '),
                               TextSpan(

@@ -15,6 +15,7 @@ namespace MyReminder.API.Data
         public DbSet<Note> Notes { get; set; }
         public DbSet<Workspace> Workspaces { get; set; }
         public DbSet<WorkspaceMember> WorkspaceMembers { get; set; }
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -61,6 +62,13 @@ namespace MyReminder.API.Data
                 .HasForeignKey(w => w.OwnerId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // RefreshToken configuration
+            modelBuilder.Entity<RefreshToken>()
+                .HasOne(rt => rt.User)
+                .WithMany(u => u.RefreshTokens)
+                .HasForeignKey(rt => rt.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
             // Indexing for faster lookups
             modelBuilder.Entity<User>()
                 .HasIndex(u => u.Username)
@@ -77,6 +85,17 @@ namespace MyReminder.API.Data
 
             modelBuilder.Entity<Note>()
                 .HasIndex(n => n.UserId);
+
+            // RefreshToken indexes: búsquedas rápidas por TokenHash y por UserId
+            modelBuilder.Entity<RefreshToken>()
+                .HasIndex(rt => rt.TokenHash)
+                .IsUnique();
+
+            modelBuilder.Entity<RefreshToken>()
+                .HasIndex(rt => rt.UserId);
+
+            modelBuilder.Entity<RefreshToken>()
+                .HasIndex(rt => rt.ExpiresAt);
         }
     }
 }

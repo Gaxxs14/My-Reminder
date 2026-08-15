@@ -13,5 +13,8 @@ namespace MyReminder.API.Models
 
         [JsonIgnore]
         public virtual ICollection<Reminder> Reminders { get; set; } = new List<Reminder>();
+
+        [JsonIgnore]
+        public virtual ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
     }
 }

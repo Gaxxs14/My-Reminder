@@ -23,7 +23,9 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
   return NotificationService();
 });
 
-final localReminderRepositoryProvider = Provider<LocalReminderRepository>((ref) {
+final localReminderRepositoryProvider = Provider<LocalReminderRepository>((
+  ref,
+) {
   return LocalReminderRepository(ref.watch(dbHelperProvider));
 });
 
@@ -35,7 +37,9 @@ final localNoteRepositoryProvider = Provider<LocalNoteRepository>((ref) {
   return LocalNoteRepository(ref.watch(dbHelperProvider));
 });
 
-final localWorkspaceRepositoryProvider = Provider<LocalWorkspaceRepository>((ref) {
+final localWorkspaceRepositoryProvider = Provider<LocalWorkspaceRepository>((
+  ref,
+) {
   return LocalWorkspaceRepository(ref.watch(dbHelperProvider));
 });
 
@@ -43,6 +47,7 @@ final syncServiceProvider = Provider<SyncService>((ref) {
   return SyncService(
     apiClient: ref.watch(apiClientProvider),
     repository: ref.watch(localReminderRepositoryProvider),
+    secureStorage: ref.watch(secureStorageProvider),
   );
 });
 
@@ -76,13 +81,21 @@ final authServiceProvider = Provider<AuthService>((ref) {
 // A state notifier provider to track authentication state (logged in = true, logged out = false)
 final authStateProvider = StateNotifierProvider<AuthStateNotifier, bool>((ref) {
   final authService = ref.watch(authServiceProvider);
-  return AuthStateNotifier(authService);
+  final apiClient = ref.watch(apiClientProvider);
+  return AuthStateNotifier(authService, apiClient);
 });
 
 class AuthStateNotifier extends StateNotifier<bool> {
   final AuthService _authService;
+  final ApiClient _apiClient;
 
-  AuthStateNotifier(this._authService) : super(false) {
+  AuthStateNotifier(this._authService, this._apiClient) : super(false) {
+    // Configurar el callback de sesión no autorizada (refresh fallido).
+    // Esto fuerza el logout global sin crear ciclos de dependencia entre providers.
+    _apiClient.onUnauthorized = () async {
+      await _authService.logout();
+      state = false;
+    };
     checkSession();
   }
 
@@ -95,7 +108,10 @@ class AuthStateNotifier extends StateNotifier<bool> {
     required String username,
     required String password,
   }) async {
-    final result = await _authService.register(username: username, password: password);
+    final result = await _authService.register(
+      username: username,
+      password: password,
+    );
     if (result.success) {
       state = true;
     }
@@ -106,7 +122,10 @@ class AuthStateNotifier extends StateNotifier<bool> {
     required String username,
     required String password,
   }) async {
-    final result = await _authService.login(username: username, password: password);
+    final result = await _authService.login(
+      username: username,
+      password: password,
+    );
     if (result.success) {
       state = true;
     }

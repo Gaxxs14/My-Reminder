@@ -44,19 +44,37 @@ builder.Services.AddControllers();
 // Register KeepAlive background service to prevent Render free tier spin-down
 builder.Services.AddHostedService<MyReminder.API.Services.KeepAliveService>();
 
-// Add CORS Policy for mobile/local testing
+// Add CORS Policy - Restringida a orígenes conocidos.
+// Nota: Las apps móviles nativas (Android/iOS) no envían cabecera Origin y no se
+// ven afectadas por CORS. Esta política aplica principalmente al frontend web (Flutter Web).
+// En producción, configura los orígenes con variables de entorno: Cors__AllowedOrigins__0, __1, ...
+var allowedCorsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? new[] { "http://localhost:5173", "http://localhost:8080" };
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("AppCors", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(allowedCorsOrigins)
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
 });
 
 // Configure JWT Authentication
-var jwtKey = builder.Configuration["Jwt:Key"] ?? "SUPER_SECRET_KEY_FOR_REMINDER_PROJECT_2026_CHANGE_THIS_IN_PROD";
+// SEGURIDAD: No se permite fallback. La clave JWT debe estar configurada
+// en variables de entorno (Render) o en appsettings.json.
+var jwtKey = builder.Configuration["Jwt:Key"]
+    ?? throw new InvalidOperationException(
+        "Jwt:Key no está configurada. Configúrala en variables de entorno de Render o en appsettings.json. " +
+        "La clave debe tener al menos 32 caracteres (256 bits) para HMAC-SHA256.");
+
+if (jwtKey.Length < 32)
+{
+    throw new InvalidOperationException(
+        "Jwt:Key demasiado corta. Debe tener al menos 32 caracteres (256 bits) para HMAC-SHA256.");
+}
+
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "MyReminderAPI";
 var jwtAudience = builder.Configuration["Jwt:Audience"] ?? "MyReminderClients";
 
@@ -105,7 +123,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseCors("AllowAll");
+app.UseCors("AppCors");
 
 // Note: HTTPS redirection is handled by Render's load balancer, not the container
 // app.UseHttpsRedirection();
