@@ -150,15 +150,14 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Configure the HTTP request pipeline.
+app.UseDeveloperExceptionPage();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
 app.UseCors("AppCors");
-
-// Note: HTTPS redirection is handled by Render's load balancer, not the container
-// app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -167,5 +166,33 @@ app.MapControllers();
 
 // Health check endpoint - used by UptimeRobot/cron-job.org to keep Render alive
 app.MapGet("/health", () => Results.Ok(new { status = "ok", timestamp = DateTime.UtcNow }));
+
+// Database connectivity diagnostic endpoint
+app.MapGet("/api/diagnostic/db", async (AppDbContext db, IConfiguration config) =>
+{
+    try
+    {
+        var canConnect = await db.Database.CanConnectAsync();
+        var userCount = await db.Users.CountAsync();
+        return Results.Ok(new
+        {
+            status = "connected",
+            canConnect = canConnect,
+            userCount = userCount,
+            hasDefaultConn = !string.IsNullOrEmpty(config.GetConnectionString("DefaultConnection")),
+            hasDatabaseUrl = !string.IsNullOrEmpty(config["DATABASE_URL"])
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new
+        {
+            status = "error",
+            message = ex.Message,
+            inner = ex.InnerException?.Message,
+            stack = ex.StackTrace
+        }, statusCode: 500);
+    }
+});
 
 app.Run();
