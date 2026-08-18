@@ -5,7 +5,6 @@ import '../security/auth_service.dart';
 import '../security/biometric_service.dart';
 import '../security/secure_storage_service.dart';
 import '../services/notification_service.dart';
-import '../services/obsidian_export_service.dart';
 import '../network/sync_service.dart';
 import '../../features/reminders/data/local_reminder_repository.dart';
 import '../../features/habits/data/local_habit_repository.dart';
@@ -49,14 +48,6 @@ final syncServiceProvider = Provider<SyncService>((ref) {
     apiClient: ref.watch(apiClientProvider),
     repository: ref.watch(localReminderRepositoryProvider),
     secureStorage: ref.watch(secureStorageProvider),
-  );
-});
-
-final obsidianExportServiceProvider = Provider<ObsidianExportService>((ref) {
-  return ObsidianExportService(
-    noteRepository: ref.watch(localNoteRepositoryProvider),
-    reminderRepository: ref.watch(localReminderRepositoryProvider),
-    habitRepository: ref.watch(localHabitRepositoryProvider),
   );
 });
 

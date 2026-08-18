@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -138,37 +137,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-  Future<void> _exportToObsidian() async {
-    try {
-      final storage = ref.read(secureStorageProvider);
-      final lastPath = await storage.read('obsidian_vault_path');
 
-      final String? selectedPath = await getDirectoryPath(
-        initialDirectory: lastPath,
-      );
-      if (selectedPath == null) return;
-
-      await storage.write('obsidian_vault_path', selectedPath);
-
-      final result = await ref
-          .read(obsidianExportServiceProvider)
-          .exportToVault(selectedPath);
-
-      if (mounted) {
-        AppToast.show(
-          context,
-          message:
-              'Exportado a ${result.exportPath}: ${result.notesExported} notas, '
-              '${result.remindersExported} recordatorios y ${result.habitsExported} hábitos.',
-          type: AppToastType.success,
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        AppToast.show(context, message: 'Error al exportar a Obsidian: $e', type: AppToastType.error);
-      }
-    }
-  }
 
   Future<void> _showDeleteAccountDialog() async {
     showDialog(
@@ -511,21 +480,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.chevron_right_rounded),
                       onTap: _syncData,
-                    ),
-                    const Divider(height: 1, indent: 16, endIndent: 16),
-                    ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.accentIndigo.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.article_rounded, color: AppTheme.accentIndigo),
-                      ),
-                      title: const Text('Exportar a Obsidian', style: TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: const Text('Notas, recordatorios y hábitos en Markdown'),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: _exportToObsidian,
                     ),
                     const Divider(height: 1, indent: 16, endIndent: 16),
                     SwitchListTile(
