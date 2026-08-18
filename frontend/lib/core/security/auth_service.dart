@@ -44,22 +44,22 @@ class AuthService {
   // Guarda los tokens de sesión (access + refresh) tras login/registro
   Future<bool> _saveSession(Map<String, dynamic> data, String username) async {
     final accessToken =
-        data['accessToken'] as String? ?? data['access_token'] as String?;
+        data['accessToken'] as String? ??
+        data['access_token'] as String? ??
+        data['token'] as String? ??
+        data['Token'] as String?;
     final refreshToken =
-        data['refreshToken'] as String? ?? data['refresh_token'] as String?;
+        data['refreshToken'] as String? ?? data['refresh_token'] as String? ?? '';
 
-    if (accessToken == null ||
-        accessToken.isEmpty ||
-        refreshToken == null ||
-        refreshToken.isEmpty) {
+    if (accessToken == null || accessToken.isEmpty) {
       return false;
     }
 
     await _secureStorage.saveToken(accessToken);
-    await _secureStorage.saveRefreshToken(refreshToken);
+    if (refreshToken.isNotEmpty) {
+      await _secureStorage.saveRefreshToken(refreshToken);
+    }
     await _secureStorage.saveUsername(username);
-    // NOTA DE SEGURIDAD: NO se guarda la contraseña en el dispositivo.
-    // El acceso biométrico ahora depende únicamente de un token JWT válido.
     return true;
   }
 

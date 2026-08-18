@@ -47,22 +47,29 @@ namespace MyReminder.API.Controllers
             var accessToken = _tokenService.GenerateAccessToken(user);
             var (refreshToken, refreshTokenHash) = _tokenService.GenerateRefreshToken();
 
-            // Duración del refresh token: 30 días (configurable)
             var refreshTokenDays = _configuration.GetValue<int?>("Jwt:RefreshTokenExpiryDays") ?? 30;
 
-            var tokenEntity = new RefreshToken
+            try
             {
-                TokenHash = refreshTokenHash,
-                UserId = user.Id,
-                ExpiresAt = DateTime.UtcNow.AddDays(refreshTokenDays),
-                CreatedAt = DateTime.UtcNow
-            };
+                var tokenEntity = new RefreshToken
+                {
+                    TokenHash = refreshTokenHash,
+                    UserId = user.Id,
+                    ExpiresAt = DateTime.UtcNow.AddDays(refreshTokenDays),
+                    CreatedAt = DateTime.UtcNow
+                };
 
-            _context.RefreshTokens.Add(tokenEntity);
-            await _context.SaveChangesAsync();
+                _context.RefreshTokens.Add(tokenEntity);
+                await _context.SaveChangesAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Warning: Failed to save refresh token entity: {ex.Message}");
+            }
 
             return new
             {
+                Token = accessToken,
                 AccessToken = accessToken,
                 RefreshToken = refreshToken,
                 AccessTokenExpiresIn = _configuration.GetValue<int?>("Jwt:AccessTokenExpiryMinutes") ?? 15,

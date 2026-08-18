@@ -83,3 +83,8 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# =========================================================================
+# 4. Vault de Obsidian (config .obsidian + exportaciones Markdown)
+# =========================================================================
+/Reminder/
