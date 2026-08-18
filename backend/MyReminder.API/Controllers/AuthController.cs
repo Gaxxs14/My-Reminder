@@ -81,45 +81,61 @@ namespace MyReminder.API.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
-            if (string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
+            try
             {
-                return BadRequest("El usuario y la contraseña son obligatorios.");
+                if (string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
+                {
+                    return BadRequest("El usuario y la contraseña son obligatorios.");
+                }
+
+                if (await _context.Users.AnyAsync(u => u.Username.ToLower() == dto.Username.ToLower()))
+                {
+                    return Conflict("El nombre de usuario ya está registrado.");
+                }
+
+                var passwordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+
+                var user = new User
+                {
+                    Username = dto.Username,
+                    PasswordHash = passwordHash
+                };
+
+                _context.Users.Add(user);
+                await _context.SaveChangesAsync();
+
+                return Ok(await BuildAuthResponseAsync(user));
             }
-
-            if (await _context.Users.AnyAsync(u => u.Username.ToLower() == dto.Username.ToLower()))
+            catch (Exception ex)
             {
-                return Conflict("El nombre de usuario ya está registrado.");
+                Console.WriteLine($"Error en Register: {ex.Message} -> {ex.InnerException?.Message}");
+                return StatusCode(500, $"Error en servidor de base de datos: {ex.Message} (Detalle: {ex.InnerException?.Message ?? "Ninguno"})");
             }
-
-            var passwordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
-
-            var user = new User
-            {
-                Username = dto.Username,
-                PasswordHash = passwordHash
-            };
-
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-
-            return Ok(await BuildAuthResponseAsync(user));
         }
 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto dto)
         {
-            if (string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
+            try
             {
-                return BadRequest("El usuario y la contraseña son obligatorios.");
-            }
+                if (string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
+                {
+                    return BadRequest("El usuario y la contraseña son obligatorios.");
+                }
 
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == dto.Username.ToLower());
-            if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == dto.Username.ToLower());
+                if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
+                {
+                    return Unauthorized("Credenciales inválidas.");
+                }
+
+                return Ok(await BuildAuthResponseAsync(user));
+            }
+            catch (Exception ex)
             {
-                return Unauthorized("Credenciales inválidas.");
+                Console.WriteLine($"Error en Login: {ex.Message} -> {ex.InnerException?.Message}");
+                return StatusCode(500, $"Error en servidor de base de datos: {ex.Message} (Detalle: {ex.InnerException?.Message ?? "Ninguno"})");
             }
-
-            return Ok(await BuildAuthResponseAsync(user));
         }
 
         /// <summary>
