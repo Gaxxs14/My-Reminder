@@ -24,6 +24,7 @@ import '../../workspaces/presentation/workspaces_provider.dart';
 import '../../workspaces/data/workspace_model.dart';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
+import 'widgets/productivity_stats_widget.dart';
 import '../../../core/widgets/gaxxs_loader.dart';
 import '../../../core/services/permission_service.dart';
 import '../data/reminder_model.dart';
@@ -45,8 +46,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(permissionServiceProvider).requestInitialPermissions();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ref.read(permissionServiceProvider).requestInitialPermissions();
+      // 🎙️ Saludo y briefing hablado inteligente de Mulan al ingresar
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        if (mounted) {
+          ref.read(mulanBriefingServiceProvider).playLoginBriefing();
+        }
+      });
     });
   }
 
@@ -642,6 +649,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ],
                   ),
                 ),
+                // 🎙️ Mulan Briefing Speech Button
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.accentIndigo.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppTheme.accentIndigo.withValues(alpha: 0.4), width: 1.5),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.record_voice_over_rounded, color: AppTheme.accentIndigo, size: 22),
+                    onPressed: () async {
+                      AppToast.show(context, message: '🎙️ Mulan preparando tu resumen...', type: AppToastType.info);
+                      await ref.read(mulanBriefingServiceProvider).playLoginBriefing(force: true);
+                    },
+                    tooltip: 'Escuchar resumen de Mulan',
+                  ),
+                ),
                 // Prominent Stylish 3-Dots Button
                 Container(
                   decoration: BoxDecoration(
@@ -657,11 +681,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
 
             // 2. LIVE GPS WEATHER WIDGET
             const WeatherWidget(),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+
+            // 3. PRODUCTIVITY DAILY STATS WIDGET
+            const ProductivityStatsWidget(),
+            const SizedBox(height: 12),
 
             // 3. OVERHAULED CALENDAR DATE STRIP HEADER
             Row(

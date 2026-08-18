@@ -89,6 +89,10 @@ namespace MyReminder.API.Controllers
                 Reminder? createdReminder = null;
                 string? deletedReminderTitle = null;
 
+                Note? createdNote = null;
+                Habit? completedHabit = null;
+                Habit? createdHabit = null;
+
                 if (action == "delete")
                 {
                     var titleToDelete = "";
@@ -162,13 +166,90 @@ namespace MyReminder.API.Controllers
                     _context.Reminders.Add(createdReminder);
                     await _context.SaveChangesAsync();
                 }
+                else if (action == "create_note")
+                {
+                    var noteTitle = "Nota rápida";
+                    if (root.TryGetProperty("title", out var titleNode) && titleNode.ValueKind != JsonValueKind.Null)
+                    {
+                        noteTitle = titleNode.GetString() ?? "Nota rápida";
+                    }
+
+                    var noteContent = noteTitle;
+                    if (root.TryGetProperty("description", out var descNode) && descNode.ValueKind != JsonValueKind.Null)
+                    {
+                        noteContent = descNode.GetString() ?? noteTitle;
+                    }
+
+                    createdNote = new Note
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        UserId = userId.Value,
+                        Title = noteTitle,
+                        Content = noteContent,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    _context.Notes.Add(createdNote);
+                    await _context.SaveChangesAsync();
+                }
+                else if (action == "complete_habit")
+                {
+                    var habitName = "";
+                    if (root.TryGetProperty("title", out var titleNode) && titleNode.ValueKind != JsonValueKind.Null)
+                    {
+                        habitName = titleNode.GetString() ?? "";
+                    }
+
+                    var habit = await _context.Habits
+                        .FirstOrDefaultAsync(h => h.UserId == userId.Value && h.Name.ToLower().Contains(habitName.ToLower()));
+
+                    if (habit != null)
+                    {
+                        habit.Streak++;
+                        habit.Points += 10;
+                        habit.LastCompleted = DateTime.UtcNow;
+                        await _context.SaveChangesAsync();
+                        completedHabit = habit;
+                        speechResponse = $"¡Genial! Registré tu hábito '{habit.Name}'. Tu racha aumentó a {habit.Streak} días consecutivos (+10 XP).";
+                    }
+                    else
+                    {
+                        speechResponse = $"Registré tu progreso, ¡sigue así!";
+                    }
+                }
+                else if (action == "create_habit")
+                {
+                    var habitTitle = "Nuevo hábito";
+                    if (root.TryGetProperty("title", out var titleNode) && titleNode.ValueKind != JsonValueKind.Null)
+                    {
+                        habitTitle = titleNode.GetString() ?? "Nuevo hábito";
+                    }
+
+                    createdHabit = new Habit
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        UserId = userId.Value,
+                        Name = habitTitle,
+                        Frequency = "daily",
+                        Streak = 0,
+                        Points = 0,
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    _context.Habits.Add(createdHabit);
+                    await _context.SaveChangesAsync();
+                    speechResponse = $"¡Listo! Creé tu nuevo hábito '{habitTitle}'. ¡A construir constancia!";
+                }
 
                 return Ok(new
                 {
                     action = action,
                     speechResponse = speechResponse,
                     createdReminder = createdReminder,
-                    deletedReminderTitle = deletedReminderTitle
+                    deletedReminderTitle = deletedReminderTitle,
+                    createdNote = createdNote,
+                    completedHabit = completedHabit,
+                    createdHabit = createdHabit
                 });
             }
             catch (Exception ex)

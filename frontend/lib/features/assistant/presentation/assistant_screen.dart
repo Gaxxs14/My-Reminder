@@ -10,6 +10,9 @@ import '../../../core/widgets/app_toast.dart';
 import '../../../core/widgets/gaxxs_loader.dart';
 import '../../reminders/data/reminder_model.dart';
 import '../../reminders/presentation/reminders_provider.dart';
+import '../../notes/presentation/notes_provider.dart';
+import '../../habits/data/habit_model.dart';
+import '../../habits/presentation/habits_provider.dart';
 
 class MessageItem {
   final String text;
@@ -527,11 +530,74 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> with SingleTi
             isSynced: true,
             createdAt: DateTime.parse(reminderJson['createdAt'] as String).toLocal(),
           );
+        } else if (action == 'create_note') {
+          final noteTitle = (data['createdNote'] != null && data['createdNote']['title'] != null)
+              ? data['createdNote']['title'] as String
+              : queryText.replaceAll(RegExp(r'(toma nota de|anota que|guarda la nota|nueva nota)\s*', caseSensitive: false), '').trim();
+          final noteContent = (data['createdNote'] != null && data['createdNote']['content'] != null)
+              ? data['createdNote']['content'] as String
+              : noteTitle;
+
+          await ref.read(notesProvider.notifier).addNote(
+            noteTitle.isNotEmpty ? noteTitle : 'Nota rápida',
+            noteContent,
+          );
+          if (mounted) {
+            AppToast.show(context, message: '¡Nota guardada con éxito!', type: AppToastType.success);
+          }
+          speechResponse = speechResponse.isNotEmpty
+              ? speechResponse
+              : '¡Listo! Guardé tu nota "$noteTitle" en la sección de Notas.';
+        } else if (action == 'complete_habit') {
+          final habits = ref.read(habitsProvider);
+          final habitMatch = habits.firstWhere(
+            (h) => queryText.toLowerCase().contains(h.name.toLowerCase()) || h.name.toLowerCase().contains(queryText.toLowerCase()),
+            orElse: () => habits.isNotEmpty ? habits.first : HabitModel(id: '', name: 'Hábito', createdAt: DateTime.now()),
+          );
+          if (habitMatch.id.isNotEmpty) {
+            await ref.read(habitsProvider.notifier).completeHabit(habitMatch.id);
+            if (mounted) {
+              AppToast.show(context, message: '¡Hábito completado! +10 XP', type: AppToastType.success);
+            }
+          }
+        } else if (action == 'create_habit') {
+          final habitTitle = queryText.replaceAll(RegExp(r'(crea el hábito de|crear hábito|nuevo hábito)\s*', caseSensitive: false), '').trim();
+          if (habitTitle.isNotEmpty) {
+            await ref.read(habitsProvider.notifier).addHabit(habitTitle, 'daily');
+            if (mounted) {
+              AppToast.show(context, message: '¡Hábito creado!', type: AppToastType.success);
+            }
+          }
+        } else if (action == 'briefing') {
+          // Trigger spoken morning briefing
+          speechResponse = await ref.read(mulanBriefingServiceProvider).playLoginBriefing(force: true);
         }
       }
     } catch (_) {
-      // Backend offline or error fallback
+      // Offline fallback
     }
+
+    // Local fallback if note or habit intent
+    if (speechResponse.isEmpty) {
+      if (lower.contains('nota') || lower.contains('anota') || lower.contains('apunta')) {
+        final noteTitle = queryText.replaceAll(RegExp(r'(toma nota de|anota que|guarda la nota|nueva nota|nota|anota)\s*', caseSensitive: false), '').trim();
+        final actualTitle = noteTitle.isNotEmpty ? noteTitle : 'Nota rápida';
+        await ref.read(notesProvider.notifier).addNote(actualTitle, queryText);
+        speechResponse = '¡He guardado tu nota "$actualTitle" en tus Notas personales!';
+        if (mounted) {
+          AppToast.show(context, message: '¡Nota guardada!', type: AppToastType.success);
+        }
+      } else if (lower.contains('hábito') || lower.contains('completé') || lower.contains('ya tomé') || lower.contains('hice ejercicio')) {
+        final habits = ref.read(habitsProvider);
+        if (habits.isNotEmpty) {
+          await ref.read(habitsProvider.notifier).completeHabit(habits.first.id);
+          speechResponse = '¡Excelente! Registré tu hábito cumplido para mantener tu racha.';
+        } else {
+          speechResponse = '¡Registré tu progreso con éxito!';
+        }
+      }
+    }
+
 
     // Fallback local deletion or creation if backend didn't handle it
     if (isDeleteIntent && speechResponse.isEmpty) {

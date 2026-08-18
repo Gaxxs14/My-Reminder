@@ -5,6 +5,7 @@ import '../security/auth_service.dart';
 import '../security/biometric_service.dart';
 import '../security/secure_storage_service.dart';
 import '../services/notification_service.dart';
+import '../services/mulan_briefing_service.dart';
 import '../network/sync_service.dart';
 import '../../features/reminders/data/local_reminder_repository.dart';
 import '../../features/habits/data/local_habit_repository.dart';
@@ -47,6 +48,14 @@ final syncServiceProvider = Provider<SyncService>((ref) {
   return SyncService(
     apiClient: ref.watch(apiClientProvider),
     repository: ref.watch(localReminderRepositoryProvider),
+    secureStorage: ref.watch(secureStorageProvider),
+  );
+});
+
+final mulanBriefingServiceProvider = Provider<MulanBriefingService>((ref) {
+  return MulanBriefingService(
+    reminderRepo: ref.watch(localReminderRepositoryProvider),
+    habitRepo: ref.watch(localHabitRepositoryProvider),
     secureStorage: ref.watch(secureStorageProvider),
   );
 });
